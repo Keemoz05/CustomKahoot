@@ -1,4 +1,4 @@
-package com.syed.QuizYa;
+package com.syed.QuizYa.controller;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;

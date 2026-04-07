@@ -1,4 +1,4 @@
-package com.syed.QuizYa;
+package com.syed.QuizYa.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -2,10 +2,131 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>CustomKahoot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizYa - Premium Trivia Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <style>
+        .landing-header { margin-top: var(--space-8); margin-bottom: var(--space-12); font-family: 'Fraunces', serif; font-size: var(--text-2xl); font-weight: 600; display: flex; justify-content: center; }
+        .hero { text-align: center; max-width: 800px; margin: 0 auto var(--space-10); padding: 0 var(--space-4); }
+        .hero-title { font-family: 'Fraunces', serif; font-size: var(--text-5xl); line-height: 1.1; margin-bottom: var(--space-4); color: var(--color-charcoal); }
+        .hero-subtitle { font-size: var(--text-lg); color: var(--color-slate); margin-bottom: var(--space-6); }
+        .cta-group { display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap; margin-bottom: var(--space-10); }
+        .cta-btn { min-width: 160px; padding: var(--space-3) var(--space-6); font-weight: 500; text-align: center; border-radius: var(--radius-md); text-decoration: none; transition: 0.2s ease; }
+        .btn-primary-filled { background-color: var(--color-deep-teal); color: white; border: none; }
+        .btn-primary-filled:hover { background-color: var(--color-teal-dark); }
+        .btn-primary-outlined { background-color: transparent; border: 1px solid var(--color-deep-teal); color: var(--color-deep-teal); }
+        .btn-primary-outlined:hover { background-color: var(--color-seafoam); }
+        
+        .social-proof { text-align: center; color: var(--color-slate); margin-bottom: var(--space-16); font-size: var(--text-sm); }
+        
+        .value-props { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-6); max-width: 1000px; margin: 0 auto var(--space-16); padding: 0 var(--space-4); }
+        .prop-card { background-color: var(--color-warm-white); padding: var(--space-6); border-radius: var(--radius-lg); transition: box-shadow 0.2s ease; }
+        .prop-card:hover { box-shadow: var(--shadow-sm); }
+        .prop-icon { font-size: 24px; color: var(--color-deep-teal); margin-bottom: var(--space-4); }
+        .prop-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: var(--text-xl); font-weight: 600; margin-bottom: var(--space-2); }
+        .prop-body { color: var(--color-slate); font-size: var(--text-base); }
+        
+        .how-it-works { max-width: 600px; margin: 0 auto var(--space-16); padding: 0 var(--space-4); }
+        .how-it-works h2 { text-align: center; margin-bottom: var(--space-8); font-size: var(--text-3xl); }
+        .step { display: flex; gap: var(--space-4); margin-bottom: var(--space-6); position: relative; }
+        .step:not(:last-child)::after { content: ''; position: absolute; left: 15px; top: 32px; bottom: -24px; width: 2px; background-color: var(--color-pebble); }
+        .step-number { background-color: var(--color-deep-teal); color: white; border-radius: var(--radius-full); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: 600; z-index: 1; flex-shrink: 0; }
+        .step-content h3 { font-size: var(--text-lg); margin-top: 2px; margin-bottom: var(--space-1); }
+        .step-content p { color: var(--color-slate); margin: 0; }
+        
+        .final-cta { text-align: center; max-width: 600px; margin: 0 auto var(--space-16); padding: 0 var(--space-4); }
+        .final-cta h2 { font-size: var(--text-3xl); margin-bottom: var(--space-6); }
+        .final-cta .small-text { color: var(--color-slate); font-size: var(--text-sm); margin-top: var(--space-3); display: block; }
+        
+        .site-footer { text-align: center; padding: var(--space-8); color: var(--color-slate); font-size: var(--text-sm); }
+        .site-footer a { color: var(--color-slate); text-decoration: none; margin: 0 var(--space-2); }
+        .site-footer a:hover { color: var(--color-charcoal); }
+        
+        @media (max-width: 768px) {
+            .hero-title { font-size: var(--text-4xl); }
+            .cta-group { flex-direction: column; }
+            .cta-btn { width: 100%; box-sizing: border-box; }
+        }
+    </style>
 </head>
 <body>
-    <h1>Hello from CustomKahoot!</h1>
-    <p>Spring Boot is working.</p>
+    <div class="landing-header">
+        <span style="color: var(--color-deep-teal);">Q</span>uizYa
+    </div>
+    
+    <div class="hero">
+        <h1 class="hero-title">Unforgettable moments, one question at a time.</h1>
+        <p class="hero-subtitle">The premium trivia platform for weddings, reunions, and celebrations that every generation can enjoy.</p>
+        <div class="cta-group">
+            <a href="#" class="cta-btn btn-primary-filled">Get started</a>
+            <a href="#" class="cta-btn btn-primary-outlined">Log in</a>
+        </div>
+    </div>
+    
+    <div class="social-proof">
+        Designed for weddings · family reunions · milestone celebrations
+    </div>
+    
+    <div class="value-props">
+        <div class="prop-card">
+            <div class="prop-icon">📱</div>
+            <div class="prop-title">One scan to join</div>
+            <div class="prop-body">Guests scan a QR code and they're in — no app downloads, no accounts, no friction.</div>
+        </div>
+        <div class="prop-card">
+            <div class="prop-icon">🎨</div>
+            <div class="prop-title">Beautifully themed</div>
+            <div class="prop-body">Choose from 50+ professionally designed templates that match your celebration's aesthetic perfectly.</div>
+        </div>
+        <div class="prop-card">
+            <div class="prop-icon">❤️</div>
+            <div class="prop-title">Every generation welcome</div>
+            <div class="prop-body">Large text, calm pacing, and zero countdown anxiety — designed so every guest from 8 to 88 can play together.</div>
+        </div>
+    </div>
+    
+    <div class="how-it-works">
+        <h2>How it works</h2>
+        <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <h3>Create your event</h3>
+                <p>Import curated questions or write your own. Drag in family photos. Pick a beautiful theme.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <h3>Guests scan and join</h3>
+                <p>Display the QR code on any screen. Guests scan with their phone camera — that's it.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <h3>Play together</h3>
+                <p>Control the pace from your dashboard. Pause for stories. Celebrate at the leaderboard.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="final-cta">
+        <h2>Ready to make your next event unforgettable?</h2>
+        <a href="#" class="cta-btn btn-primary-filled" style="display: inline-block;">Create your free event</a>
+        <span class="small-text">No credit card required.</span>
+    </div>
+    
+    <div class="site-footer">
+        <div style="margin-bottom: var(--space-4);">
+            <a href="#">About</a> &middot; <a href="#">Contact</a> &middot; <a href="#">Privacy</a> &middot; <a href="#">Terms</a>
+        </div>
+        <div>
+            &copy; 2026 QuizYa
+        </div>
+    </div>
 </body>
 </html>

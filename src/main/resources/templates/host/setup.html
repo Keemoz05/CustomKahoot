@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Setup - QuizYa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/setup.css}">
+    <script th:inline="javascript">
+        window.EVENT_ID = /*[[${event.id}]]*/ 0;
+    </script>
+</head>
+<body class="setup-layout">
+    <!-- Top Navbar -->
+    <header class="setup-header">
+        <div class="header-left">
+            <div class="nav-controls">
+                <a th:href="@{/host/dashboard}" class="back-link">← Back</a>
+            </div>
+            <h1 class="header-title" th:text="${event.title}">Event Name</h1>
+        </div>
+        <div class="header-right">
+            <button class="btn-outline btn-sm" id="btnImportLibrary">Library</button>
+            <button class="btn-outline btn-sm">Settings</button>
+            <button class="btn-primary btn-sm">Start Event</button>
+        </div>
+    </header>
+
+    <div class="setup-container">
+        <!-- Left Sidebar: Question List -->
+        <aside class="sidebar-questions" style="padding-top: var(--space-4);">
+            <button id="addQuestionBtn" class="add-q-btn">+ Add slide</button>
+            <div id="questionList" class="thumbnail-list">
+                <!-- Dynamically populated thumbnails -->
+            </div>
+        </aside>
+
+        <!-- Main Editor Area -->
+        <main class="editor-main">
+            <div id="emptyEditorState" class="empty-editor">
+                <h2>Select or add a question</h2>
+            </div>
+            
+            <div id="activeEditor" class="active-editor hidden">
+                <div class="floating-toolbar">
+                    <div class="editor-controls-left">
+                        <select id="questionTypeSelect" class="input-field type-select">
+                            <option value="MULTIPLE_CHOICE">Quiz</option>
+                            <option value="POLL">Poll</option>
+                            <option value="WORD_CLOUD">Word Cloud</option>
+                            <option value="SLIDE">Slide</option>
+                        </select>
+
+                        <div class="setting-group" id="timeLimitGroup">
+                            <select id="timeLimitSelect" class="input-field mini-select">
+                                <option value="10">10s</option>
+                                <option value="20">20s</option>
+                                <option value="30">30s</option>
+                                <option value="60">60s</option>
+                            </select>
+                        </div>
+                        <div class="setting-group" id="pointsGroup">
+                            <select id="pointsSelect" class="input-field mini-select">
+                                <option value="100">100 pt</option>
+                                <option value="200">200 pt</option>
+                                <option value="0">0 pt</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="editor-controls-right">
+                        <button id="deleteQuestionBtn" class="btn-ghost btn-danger-text">Delete</button>
+                    </div>
+                </div>
+
+                <div class="canvas-area">
+                    <textarea id="questionPrompt" class="prompt-input" placeholder="How are you feeling today?" rows="3"></textarea>
+                    
+                    <div class="media-placeholder">
+                        <span>+ Add Media</span>
+                    </div>
+                    
+                    <div class="answers-section">
+                        <div id="optionsContainer" class="options-grid">
+                            <!-- Options injected here -->
+                        </div>
+                        <button id="addOptionBtn" class="btn-ghost add-opt-btn">+ Add Option</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Question Library Modal -->
+    <div id="libraryModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Import Template</h2>
+                <button type="button" class="btn-ghost close-btn" onclick="document.getElementById('libraryModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="banks-list" id="curatedBanksList">
+                    <!-- Curated banks injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/host-setup.js}"></script>
+</body>
+</html>

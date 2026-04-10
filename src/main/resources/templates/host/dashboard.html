@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - QuizYa</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/host.css}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <div class="brand-logo dashboard-logo"><span>Q</span>uizYa Host</div>
+            <div>
+                <button type="button" class="btn-primary auto-width-btn" onclick="document.getElementById('createModal').classList.add('active')">Create event</button>
+            </div>
+        </div>
+        
+        <h2>Your Events</h2>
+        
+        <div th:if="${events.empty}" class="card empty-state">
+            <h3 style="margin-top:0;">What would you like to create?</h3>
+            <p style="color: var(--color-slate); max-width: 400px; margin: 0 auto var(--space-6);">
+                No events yet — let's create your first one.
+            </p>
+            <button type="button" class="btn-primary auto-width-btn" onclick="document.getElementById('createModal').classList.add('active')">Create your first event</button>
+        </div>
+        
+        <div th:unless="${events.empty}" class="events-grid">
+            <a th:each="event : ${events}" th:href="@{/host/events/{id}/setup(id=${event.id})}" style="text-decoration: none;">
+                <div class="event-card">
+                    <h3 class="event-title" th:text="${event.title}">Event Title</h3>
+                    <p class="event-description" th:text="${event.description}">Event Description</p>
+                    <div class="event-meta">
+                        <span class="status-badge" th:attr="data-status=${event.status}" th:text="${event.status}">DRAFT</span>
+                        <span th:text="${'Join Code: ' + event.joinCode}">Join Code</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Create Event Modal -->
+    <div id="createModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-top: 0; margin-bottom: var(--space-6);">Create New Event</h2>
+            <form th:action="@{/host/events}" method="post">
+                <div class="form-group">
+                    <label for="title">Event Title</label>
+                    <input type="text" id="title" name="title" required class="input-field" placeholder="e.g. Weekly All-Hands Quiz">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description (Optional)</label>
+                    <input type="text" id="description" name="description" class="input-field" placeholder="Brief description visible to guests">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-primary btn-outline auto-width-btn" onclick="document.getElementById('createModal').classList.remove('active')">Cancel</button>
+                    <button type="submit" class="btn-primary auto-width-btn">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

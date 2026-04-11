@@ -11,8 +11,6 @@ const activeEditor = document.getElementById('activeEditor');
 
 // Active Editor Elements
 const qTypeSelect = document.getElementById('questionTypeSelect');
-const timeLimitSelect = document.getElementById('timeLimitSelect');
-const pointsSelect = document.getElementById('pointsSelect');
 const qPromptInput = document.getElementById('questionPrompt');
 const optionsContainer = document.getElementById('optionsContainer');
 const addOptionBtn = document.getElementById('addOptionBtn');
@@ -93,8 +91,6 @@ function selectQuestion(qId) {
     activeEditor.classList.remove('hidden');
 
     qTypeSelect.value = q.type;
-    timeLimitSelect.value = q.timeLimit || 20;
-    pointsSelect.value = q.points !== undefined ? q.points : 100;
     qPromptInput.value = q.prompt;
 
     renderOptions(q);
@@ -166,8 +162,8 @@ async function updateActiveQuestion() {
     if(!activeQuestionId) return;
     let type = qTypeSelect.value;
     let prompt = qPromptInput.value;
-    let timeLimit = timeLimitSelect.value;
-    let points = pointsSelect.value;
+    let timeLimit = 20; // Safe default
+    let points = 100;   // Safe default
 
     let res = await fetch(`${API_BASE}/questions/${activeQuestionId}`, {
         method: 'PUT',
@@ -180,7 +176,7 @@ async function updateActiveQuestion() {
         if (q.type !== type) {
             await loadQuestions();
         } else {
-            q.type = type; q.prompt = prompt; q.timeLimit = timeLimit; q.points = points;
+            q.type = type; q.prompt = prompt;
             renderSidebar();
         }
     }
@@ -260,8 +256,6 @@ addOptionBtn.addEventListener('click', addNewOption);
 btnImportLibrary.addEventListener('click', loadCuratedBanks);
 
 qTypeSelect.addEventListener('change', updateActiveQuestion);
-timeLimitSelect.addEventListener('change', updateActiveQuestion);
-pointsSelect.addEventListener('change', updateActiveQuestion);
 qPromptInput.addEventListener('blur', updateActiveQuestion);
 
 // Startup

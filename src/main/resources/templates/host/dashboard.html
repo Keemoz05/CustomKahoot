@@ -14,7 +14,7 @@
 <body>
     <div class="dashboard-container">
         <div class="dashboard-header">
-            <div class="brand-logo dashboard-logo"><span>Q</span>uizYa Host</div>
+            <div class="brand-logo dashboard-logo"><span>Q</span>QuizYa Host</div>
             <div>
                 <button type="button" class="btn-primary auto-width-btn" onclick="document.getElementById('createModal').classList.add('active')">Create event</button>
             </div>
@@ -31,16 +31,27 @@
         </div>
         
         <div th:unless="${events.empty}" class="events-grid">
-            <a th:each="event : ${events}" th:href="@{/host/events/{id}/setup(id=${event.id})}" style="text-decoration: none;">
-                <div class="event-card">
-                    <h3 class="event-title" th:text="${event.title}">Event Title</h3>
+            <div th:each="event : ${events}" class="event-card" th:id="'event-card-' + ${event.id}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4);">
+                    <a th:href="@{/host/events/{id}/setup(id=${event.id})}" style="text-decoration: none; flex-grow: 1;">
+                        <h3 class="event-title" th:text="${event.title}" th:id="'event-title-' + ${event.id}">Event Title</h3>
+                    </a>
+                    <div style="display: flex; gap: var(--space-2);">
+                        <button type="button" class="btn-outline" style="padding: 4px 8px; font-size: 0.8rem; border-color: var(--color-pebble); border-radius: var(--radius-sm); cursor: pointer;" 
+                                th:attr="data-id=${event.id}, data-title=${event.title}" onclick="openRenameModal(this.getAttribute('data-id'), this.getAttribute('data-title'))">Rename</button>
+                        <button type="button" class="btn-outline" style="padding: 4px 8px; font-size: 0.8rem; border-color: var(--color-rosewood); color: var(--color-rosewood); border-radius: var(--radius-sm); cursor: pointer;" 
+                                th:attr="data-id=${event.id}, data-title=${event.title}" onclick="openDeleteModal(this.getAttribute('data-id'), this.getAttribute('data-title'))">Delete</button>
+                    </div>
+                </div>
+                
+                <a th:href="@{/host/events/{id}/setup(id=${event.id})}" style="text-decoration: none; color: inherit; display: block; margin-top: var(--space-2);">
                     <p class="event-description" th:text="${event.description}">Event Description</p>
-                    <div class="event-meta">
+                    <div class="event-meta" style="margin-top: var(--space-4);">
                         <span class="status-badge" th:attr="data-status=${event.status}" th:text="${event.status}">DRAFT</span>
                         <span th:text="${'Join Code: ' + event.joinCode}">Join Code</span>
                     </div>
-                </div>
-            </a>
+                </a>
+            </div>
         </div>
     </div>
     
@@ -64,5 +75,89 @@
             </form>
         </div>
     </div>
+
+    <!-- Rename Event Modal -->
+    <div id="renameModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-top: 0; margin-bottom: var(--space-6);">Rename Event</h2>
+            <form id="renameForm" onsubmit="submitRename(event)">
+                <input type="hidden" id="renameEventId">
+                <div class="form-group">
+                    <label for="renameTitle">New Event Title</label>
+                    <input type="text" id="renameTitle" required class="input-field">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-primary btn-outline auto-width-btn" onclick="document.getElementById('renameModal').classList.remove('active')">Cancel</button>
+                    <button type="submit" class="btn-primary auto-width-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Event Modal -->
+    <div id="deleteModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-top: 0; margin-bottom: var(--space-4); color: var(--color-rosewood);">Delete Event</h2>
+            <p style="margin-top: 0; margin-bottom: var(--space-6);">Are you sure you want to permanently delete "<span id="deleteEventTitle" style="font-weight:600;"></span>"? This cannot be undone.</p>
+            <input type="hidden" id="deleteEventId">
+            <div class="modal-actions">
+                <button type="button" class="btn-primary btn-outline auto-width-btn" onclick="document.getElementById('deleteModal').classList.remove('active')">Cancel</button>
+                <button type="button" class="btn-primary auto-width-btn" style="background-color: var(--color-rosewood);" onclick="submitDelete()">Delete Event</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openRenameModal(id, title) {
+            document.getElementById('renameEventId').value = id;
+            document.getElementById('renameTitle').value = title;
+            document.getElementById('renameModal').classList.add('active');
+        }
+
+        async function submitRename(e) {
+            e.preventDefault();
+            const id = document.getElementById('renameEventId').value;
+            const newTitle = document.getElementById('renameTitle').value;
+            
+            try {
+                const res = await fetch(`/api/host/events/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTitle })
+                });
+                if (res.ok) {
+                    document.getElementById(`event-title-${id}`).innerText = newTitle;
+                    const card = document.getElementById(`event-card-${id}`);
+                    const buttons = card.querySelectorAll('button[data-title]');
+                    buttons.forEach(btn => btn.setAttribute('data-title', newTitle));
+                    document.getElementById('renameModal').classList.remove('active');
+                }
+            } catch (err) {
+                console.error('Failed to rename event', err);
+            }
+        }
+
+        function openDeleteModal(id, title) {
+            document.getElementById('deleteEventId').value = id;
+            document.getElementById('deleteEventTitle').innerText = title;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        async function submitDelete() {
+            const id = document.getElementById('deleteEventId').value;
+            try {
+                const res = await fetch(`/api/host/events/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const card = document.getElementById(`event-card-${id}`);
+                    card.style.opacity = '0';
+                    card.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => card.remove(), 300);
+                    document.getElementById('deleteModal').classList.remove('active');
+                }
+            } catch (err) {
+                console.error('Failed to delete event', err);
+            }
+        }
+    </script>
 </body>
 </html>

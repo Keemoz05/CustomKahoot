@@ -67,7 +67,6 @@ public class QuestionService {
         q.setQuestionType(type);
         q.setPromptText("New Question");
         q.setSortOrder(nextSortOrder);
-        q.setPointsValue("Slide".equals(type) ? 0 : 100);
         q.setTimeLimitSeconds(20);
         q = questionRepository.save(q);
 
@@ -93,14 +92,12 @@ public class QuestionService {
      * this method has business logic to actively delete the old orphaned options (A,B,C,D).
      */
     @Transactional
-    public Question updateQuestion(Long questionId, String type, String prompt, Integer timeLimit, Integer points) {
+    public Question updateQuestion(Long questionId, String type, String prompt) {
         Question q = questionRepository.findById(questionId).orElseThrow();
         
         boolean typeChanged = !q.getQuestionType().equals(type);
         q.setQuestionType(type);
         q.setPromptText(prompt);
-        q.setTimeLimitSeconds(timeLimit);
-        q.setPointsValue(points);
         q = questionRepository.save(q);
 
         if (typeChanged && ("WORD_CLOUD".equals(type) || "SLIDE".equals(type))) {
@@ -187,7 +184,6 @@ public class QuestionService {
             newQ.setQuestionType(sourceQ.getQuestionType());
             newQ.setPromptText(sourceQ.getPromptText());
             newQ.setSortOrder(nextSort++);
-            newQ.setPointsValue(sourceQ.getPointsValue());
             newQ.setTimeLimitSeconds(sourceQ.getTimeLimitSeconds());
             newQ.setExplanationText(sourceQ.getExplanationText());
             newQ = questionRepository.save(newQ);
@@ -204,5 +200,19 @@ public class QuestionService {
                 questionOptionRepository.save(newOpt);
             }
         }
+    }
+
+    @Transactional
+    public void deleteEventContent(Long eventId) {
+        List<QuestionBank> banks = questionBankRepository.findByEventId(eventId);
+        for (QuestionBank bank : banks) {
+            List<Question> questions = questionRepository.findByBankIdOrderBySortOrderAsc(bank.getId());
+            for (Question q : questions) {
+                List<QuestionOption> options = questionOptionRepository.findByQuestionIdOrderBySortOrderAsc(q.getId());
+                questionOptionRepository.deleteAll(options);
+            }
+            questionRepository.deleteAll(questions);
+        }
+        questionBankRepository.deleteAll(banks);
     }
 }

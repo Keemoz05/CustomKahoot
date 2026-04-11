@@ -22,13 +22,15 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final QuestionBankRepository questionBankRepository;
+    private final QuestionService questionService;
 
     private static final String ALPHANUMERIC_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private final SecureRandom random = new SecureRandom();
 
-    public EventService(EventRepository eventRepository, QuestionBankRepository questionBankRepository) {
+    public EventService(EventRepository eventRepository, QuestionBankRepository questionBankRepository, QuestionService questionService) {
         this.eventRepository = eventRepository;
         this.questionBankRepository = questionBankRepository;
+        this.questionService = questionService;
     }
 
     public List<Event> getAllEvents() {
@@ -76,5 +78,18 @@ public class EventService {
             sb.append(ALPHANUMERIC_CHARS.charAt(random.nextInt(ALPHANUMERIC_CHARS.length())));
         }
         return sb.toString();
+    }
+
+    @Transactional
+    public Event updateEventTitle(Long id, String newTitle) {
+        Event event = eventRepository.findById(id).orElseThrow();
+        event.setTitle(newTitle);
+        return eventRepository.save(event);
+    }
+
+    @Transactional
+    public void deleteEvent(Long id) {
+        questionService.deleteEventContent(id);
+        eventRepository.deleteById(id);
     }
 }

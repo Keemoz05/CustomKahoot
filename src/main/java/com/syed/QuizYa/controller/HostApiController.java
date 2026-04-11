@@ -16,9 +16,11 @@ import java.util.stream.Collectors;
 public class HostApiController {
 
     private final QuestionService questionService;
+    private final com.syed.QuizYa.service.EventService eventService;
 
-    public HostApiController(QuestionService questionService) {
+    public HostApiController(QuestionService questionService, com.syed.QuizYa.service.EventService eventService) {
         this.questionService = questionService;
+        this.eventService = eventService;
     }
 
     @GetMapping("/banks")
@@ -41,8 +43,6 @@ public class HostApiController {
                 "type", q.getQuestionType(),
                 "prompt", q.getPromptText(),
                 "sortOrder", q.getSortOrder(),
-                "points", q.getPointsValue(),
-                "timeLimit", q.getTimeLimitSeconds() != null ? q.getTimeLimitSeconds() : 20,
                 "options", options.stream().map(o -> Map.of(
                     "id", o.getId(),
                     "text", o.getOptionText(),
@@ -66,10 +66,8 @@ public class HostApiController {
     public ResponseEntity<?> updateQuestion(@PathVariable Long qId, @RequestBody Map<String, Object> payload) {
         String type = (String) payload.get("type");
         String prompt = (String) payload.get("prompt");
-        Integer timeLimit = payload.containsKey("timeLimit") ? Integer.valueOf(payload.get("timeLimit").toString()) : 20;
-        Integer points = payload.containsKey("points") ? Integer.valueOf(payload.get("points").toString()) : 100;
-        
-        questionService.updateQuestion(qId, type, prompt, timeLimit, points);
+
+        questionService.updateQuestion(qId, type, prompt);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
@@ -112,6 +110,21 @@ public class HostApiController {
     @PostMapping("/banks/{targetBankId}/import/{sourceBankId}")
     public ResponseEntity<?> importBank(@PathVariable Long targetBankId, @PathVariable Long sourceBankId) {
         questionService.importBank(targetBankId, sourceBankId);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PutMapping("")
+    public ResponseEntity<?> renameEvent(@PathVariable Long eventId, @RequestBody Map<String, String> payload) {
+        String newTitle = payload.get("title");
+        if (newTitle != null && !newTitle.trim().isEmpty()) {
+            eventService.updateEventTitle(eventId, newTitle);
+        }
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @DeleteMapping("")
+    public ResponseEntity<?> deleteEvent(@PathVariable Long eventId) {
+        eventService.deleteEvent(eventId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 }

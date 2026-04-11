@@ -27,9 +27,6 @@ public class Question {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
-    @Column(name = "points_value", nullable = false)
-    private Integer pointsValue = 100;
-
     @Column(name = "time_limit_seconds")
     private Integer timeLimitSeconds;
 
@@ -64,8 +61,6 @@ public class Question {
     public void setPromptText(String promptText) { this.promptText = promptText; }
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
-    public Integer getPointsValue() { return pointsValue; }
-    public void setPointsValue(Integer pointsValue) { this.pointsValue = pointsValue; }
     public Integer getTimeLimitSeconds() { return timeLimitSeconds; }
     public void setTimeLimitSeconds(Integer timeLimitSeconds) { this.timeLimitSeconds = timeLimitSeconds; }
     public String getExplanationText() { return explanationText; }

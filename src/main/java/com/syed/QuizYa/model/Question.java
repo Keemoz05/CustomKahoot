@@ -20,9 +20,11 @@ public class Question {
     @Column(name = "prompt_text", columnDefinition = "TEXT", nullable = false)
     private String promptText;
 
-    // Optional media asset omitted for now (focus on core)
-    // @Column(name = "media_asset_id")
-    // private Long mediaAssetId;
+    // Optional media asset — attached via Cloudinary upload (Week 3)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "media_asset_id")
+    private MediaAsset mediaAsset;
+
 
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
@@ -59,6 +61,9 @@ public class Question {
     public void setQuestionType(String questionType) { this.questionType = questionType; }
     public String getPromptText() { return promptText; }
     public void setPromptText(String promptText) { this.promptText = promptText; }
+    public MediaAsset getMediaAsset() { return mediaAsset; }
+    public void setMediaAsset(MediaAsset mediaAsset) { this.mediaAsset = mediaAsset; }
+
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     public Integer getTimeLimitSeconds() { return timeLimitSeconds; }

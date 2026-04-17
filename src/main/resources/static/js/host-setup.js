@@ -3,47 +3,62 @@ let defaultBankId = null;
 let currentQuestions = [];
 let activeQuestionId = null;
 
-// DOM Elements
-const questionList = document.getElementById('questionList');
-const addQuestionBtn = document.getElementById('addQuestionBtn');
-const emptyState = document.getElementById('emptyEditorState');
-const activeEditor = document.getElementById('activeEditor');
+// ─── DOM Elements ────────────────────────────────────────────────────────────
+const questionList    = document.getElementById('questionList');
+const addQuestionBtn  = document.getElementById('addQuestionBtn');
+const emptyState      = document.getElementById('emptyEditorState');
+const activeEditor    = document.getElementById('activeEditor');
 
-// Active Editor Elements
-const qTypeSelect = document.getElementById('questionTypeSelect');
-const qPromptInput = document.getElementById('questionPrompt');
+const qTypeSelect     = document.getElementById('questionTypeSelect');
+const qPromptInput    = document.getElementById('questionPrompt');
 const optionsContainer = document.getElementById('optionsContainer');
-const addOptionBtn = document.getElementById('addOptionBtn');
-const deleteQBtn = document.getElementById('deleteQuestionBtn');
+const addOptionBtn    = document.getElementById('addOptionBtn');
+const deleteQBtn      = document.getElementById('deleteQuestionBtn');
 
 // Library
 const btnImportLibrary = document.getElementById('btnImportLibrary');
-const libraryModal = document.getElementById('libraryModal');
+const libraryModal     = document.getElementById('libraryModal');
 const curatedBanksList = document.getElementById('curatedBanksList');
 
-// Init
+// Media zone elements
+const mediaZone        = document.getElementById('mediaZone');
+const mediaEmpty       = document.getElementById('mediaEmpty');
+const mediaPreview     = document.getElementById('mediaPreview');
+const mediaPreviewImg  = document.getElementById('mediaPreviewImg');
+const mediaUploading   = document.getElementById('mediaUploading');
+const mediaFileInput   = document.getElementById('mediaFileInput');
+const mediaBrowseLink  = document.getElementById('mediaBrowseLink');
+const removeMediaBtn   = document.getElementById('removeMediaBtn');
+
+// Start Event / Lobby overlay
+const btnStartEvent    = document.getElementById('btnStartEvent');
+const lobbyOverlay     = document.getElementById('lobbyOverlay');
+const closeLobbyBtn    = document.getElementById('closeLobbyBtn');
+const lobbyQrImg       = document.getElementById('lobbyQrImg');
+const lobbyPinCode     = document.getElementById('lobbyPinCode');
+const lobbyDisplayLink = document.getElementById('lobbyDisplayLink');
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-    // 1. Fetch Banks for this event (find the default one)
     let res = await fetch(`${API_BASE}/banks`);
-    if(res.ok) {
+    if (res.ok) {
         let data = await res.json();
-        if(data.banks.length > 0) {
+        if (data.banks.length > 0) {
             defaultBankId = data.banks[0].id;
             loadQuestions();
         }
     }
 }
 
-// Load
+// ─── Question Loading & Rendering ────────────────────────────────────────────
 async function loadQuestions() {
     let res = await fetch(`${API_BASE}/banks/${defaultBankId}/questions`);
-    if(res.ok) {
+    if (res.ok) {
         let data = await res.json();
         currentQuestions = data.questions;
         renderSidebar();
-        
+
         if (currentQuestions.length > 0) {
-            // Find active or just pick first
             let toSelect = currentQuestions.find(q => q.id === activeQuestionId);
             if (!toSelect) toSelect = currentQuestions[0];
             selectQuestion(toSelect.id);
@@ -60,12 +75,12 @@ function renderSidebar() {
     currentQuestions.forEach((q, index) => {
         let div = document.createElement('div');
         div.className = `q-thumbnail ${q.id === activeQuestionId ? 'active' : ''}`;
-        
+
         if (q.id === window.__newQuestionId) {
             div.classList.add('new-question-anim');
             setTimeout(() => { if (window.__newQuestionId === q.id) window.__newQuestionId = null; }, 500);
         }
-        
+
         div.innerText = `${index + 1}. ${getTypeLabel(q.type)}`;
         div.onclick = () => selectQuestion(q.id);
         questionList.appendChild(div);
@@ -73,17 +88,14 @@ function renderSidebar() {
 }
 
 function getTypeLabel(type) {
-    if (type === 'MULTIPLE_CHOICE') return 'Quiz';
-    if (type === 'POLL') return 'Poll';
-    if (type === 'WORD_CLOUD') return 'Word Cloud';
-    if (type === 'SLIDE') return 'Slide';
-    return type;
+    const map = { MULTIPLE_CHOICE: 'Quiz', POLL: 'Poll', WORD_CLOUD: 'Word Cloud', SLIDE: 'Slide' };
+    return map[type] || type;
 }
 
 function selectQuestion(qId) {
     activeQuestionId = qId;
-    renderSidebar(); // Update active class
-    
+    renderSidebar();
+
     let q = currentQuestions.find(q => q.id === qId);
     if (!q) return;
 
@@ -93,24 +105,157 @@ function selectQuestion(qId) {
     qTypeSelect.value = q.type;
     qPromptInput.value = q.prompt;
 
+    // Restore the media zone to the correct state for this question
+    updateMediaZone(q.mediaUrl, q.transformedUrl);
+
     renderOptions(q);
 }
 
+// ─── Media Zone ───────────────────────────────────────────────────────────────
+
+/**
+ * Updates the media zone display to reflect the current question's media state.
+ * Three possible states: empty, preview (has media), uploading.
+ */
+function updateMediaZone(mediaUrl, transformedUrl) {
+    if (mediaUrl && mediaUrl.length > 0) {
+        // Use the transformed (cropped) URL for the preview if available, else original
+        mediaPreviewImg.src = transformedUrl || mediaUrl;
+        showMediaState('preview');
+    } else {
+        showMediaState('empty');
+    }
+}
+
+function showMediaState(state) {
+    mediaEmpty.classList.add('hidden');
+    mediaPreview.classList.add('hidden');
+    mediaUploading.classList.add('hidden');
+
+    if (state === 'empty')     mediaEmpty.classList.remove('hidden');
+    if (state === 'preview')   mediaPreview.classList.remove('hidden');
+    if (state === 'uploading') mediaUploading.classList.remove('hidden');
+}
+
+// Drag-and-drop handlers
+mediaZone.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    mediaZone.classList.add('drag-over');
+});
+mediaZone.addEventListener('dragover', (e) => {
+    e.preventDefault(); // required to allow drop
+    mediaZone.classList.add('drag-over');
+});
+mediaZone.addEventListener('dragleave', () => {
+    mediaZone.classList.remove('drag-over');
+});
+mediaZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    mediaZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+});
+
+// Click-to-browse via the zone itself (but not when in preview mode, to avoid conflicts)
+mediaZone.addEventListener('click', (e) => {
+    // Only open file picker from the empty state
+    if (!mediaPreview.classList.contains('hidden')) return;
+    mediaFileInput.click();
+});
+
+// "click to browse" link inside the empty state
+if (mediaBrowseLink) {
+    mediaBrowseLink.addEventListener('click', (e) => {
+        e.stopPropagation(); // don't bubble to mediaZone
+        mediaFileInput.click();
+    });
+}
+
+// File input change (click-to-browse chosen a file)
+mediaFileInput.addEventListener('change', () => {
+    const file = mediaFileInput.files[0];
+    if (file) handleFileUpload(file);
+    mediaFileInput.value = ''; // reset so same file can be re-uploaded if needed
+});
+
+/**
+ * Uploads the given file to Cloudinary via the backend.
+ * Shows the uploading spinner, then either displays the preview or shows an error.
+ */
+async function handleFileUpload(file) {
+    if (!activeQuestionId) return;
+
+    // Only allow image/video
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        alert('Please upload an image or video file.');
+        return;
+    }
+
+    showMediaState('uploading');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(`${API_BASE}/questions/${activeQuestionId}/media`, {
+            method: 'POST',
+            body: formData
+            // Note: do NOT set Content-Type header — the browser sets it automatically
+            //       with the correct multipart boundary for FormData
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            // Update the in-memory question so the preview persists when switching questions
+            const q = currentQuestions.find(q => q.id === activeQuestionId);
+            if (q) {
+                q.mediaUrl = data.mediaUrl;
+                q.transformedUrl = data.transformedUrl;
+            }
+            updateMediaZone(data.mediaUrl, data.transformedUrl);
+        } else {
+            showMediaState('empty');
+            alert('Upload failed. Please try again.');
+        }
+    } catch (err) {
+        showMediaState('empty');
+        alert('Upload failed: ' + err.message);
+    }
+}
+
+// Remove media button click
+removeMediaBtn.addEventListener('click', async (e) => {
+    e.stopPropagation(); // don't bubble to mediaZone
+    if (!activeQuestionId) return;
+
+    const res = await fetch(`${API_BASE}/questions/${activeQuestionId}/media`, {
+        method: 'DELETE'
+    });
+
+    if (res.ok) {
+        const q = currentQuestions.find(q => q.id === activeQuestionId);
+        if (q) { q.mediaUrl = ''; q.transformedUrl = ''; }
+        showMediaState('empty');
+        mediaPreviewImg.src = '';
+    }
+});
+
+// ─── Options ─────────────────────────────────────────────────────────────────
 function renderOptions(q) {
     optionsContainer.innerHTML = '';
-    
+
     if (q.type === 'WORD_CLOUD' || q.type === 'SLIDE') {
         addOptionBtn.style.display = 'none';
         return;
     }
-    
+
     addOptionBtn.style.display = 'block';
 
     q.options.forEach(opt => {
         let div = document.createElement('div');
         div.className = 'option-box';
         div.style.setProperty('--opt-color', opt.color);
-        
+
         let correctBtn = '';
         if (q.type !== 'POLL') {
             correctBtn = `<button class="correct-toggle ${opt.isCorrect ? 'active' : ''}" data-id="${opt.id}"></button>`;
@@ -124,15 +269,14 @@ function renderOptions(q) {
         optionsContainer.appendChild(div);
     });
 
-    // Option Event Listeners
     optionsContainer.querySelectorAll('.opt-input').forEach(inp => {
         inp.addEventListener('blur', (e) => updateOption(e.target.dataset.id));
     });
     optionsContainer.querySelectorAll('.correct-toggle').forEach(btn => {
         btn.addEventListener('click', (e) => {
             let id = e.target.dataset.id;
-            // Toggle
-            let opt = q.options.find(o => o.id == id);
+            let opt = currentQuestions.find(q => q.id === activeQuestionId)?.options.find(o => o.id == id);
+            if (!opt) return;
             opt.isCorrect = !opt.isCorrect;
             e.target.classList.toggle('active', opt.isCorrect);
             updateOption(id);
@@ -143,14 +287,14 @@ function renderOptions(q) {
     });
 }
 
-// API Interactions
+// ─── Question API Calls ───────────────────────────────────────────────────────
 async function addNewQuestion() {
     let res = await fetch(`${API_BASE}/banks/${defaultBankId}/questions`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({type: 'MULTIPLE_CHOICE'})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'MULTIPLE_CHOICE' })
     });
-    if(res.ok) {
+    if (res.ok) {
         let data = await res.json();
         activeQuestionId = data.id;
         window.__newQuestionId = data.id;
@@ -159,70 +303,60 @@ async function addNewQuestion() {
 }
 
 async function updateActiveQuestion() {
-    if(!activeQuestionId) return;
-    let type = qTypeSelect.value;
-    let prompt = qPromptInput.value;
-    let timeLimit = 20; // Safe default
-    let points = 100;   // Safe default
-
+    if (!activeQuestionId) return;
     let res = await fetch(`${API_BASE}/questions/${activeQuestionId}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ type, prompt, timeLimit, points })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: qTypeSelect.value, prompt: qPromptInput.value })
     });
-    if(res.ok) {
-        // Find if type changed to re-render options safely
+    if (res.ok) {
         let q = currentQuestions.find(q => q.id === activeQuestionId);
-        if (q.type !== type) {
+        if (q && q.type !== qTypeSelect.value) {
             await loadQuestions();
-        } else {
-            q.type = type; q.prompt = prompt;
+        } else if (q) {
+            q.type = qTypeSelect.value;
+            q.prompt = qPromptInput.value;
             renderSidebar();
         }
     }
 }
 
 async function deleteActiveQuestion() {
-    if(!activeQuestionId) return;
+    if (!activeQuestionId) return;
     let res = await fetch(`${API_BASE}/questions/${activeQuestionId}`, { method: 'DELETE' });
-    if(res.ok) {
+    if (res.ok) {
         activeQuestionId = null;
         await loadQuestions();
     }
 }
 
 async function addNewOption() {
-    if(!activeQuestionId) return;
+    if (!activeQuestionId) return;
     let res = await fetch(`${API_BASE}/questions/${activeQuestionId}/options`, { method: 'POST' });
-    if(res.ok) {
-        await loadQuestions();
-    }
+    if (res.ok) await loadQuestions();
 }
 
 async function updateOption(optId) {
     let optEl = document.querySelector(`.opt-input[data-id="${optId}"]`);
-    if(!optEl) return;
-    let text = optEl.value;
+    if (!optEl) return;
     let q = currentQuestions.find(q => q.id === activeQuestionId);
-    let opt = q.options.find(o => o.id == optId);
-    
-    let res = await fetch(`${API_BASE}/options/${optId}`, {
+    let opt = q?.options.find(o => o.id == optId);
+    await fetch(`${API_BASE}/options/${optId}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ text, isCorrect: opt.isCorrect })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: optEl.value, isCorrect: opt?.isCorrect ?? false })
     });
 }
 
 async function deleteOption(optId) {
     let res = await fetch(`${API_BASE}/options/${optId}`, { method: 'DELETE' });
-    if(res.ok) {
-        await loadQuestions();
-    }
+    if (res.ok) await loadQuestions();
 }
 
+// ─── Question Library ─────────────────────────────────────────────────────────
 async function loadCuratedBanks() {
     let res = await fetch(`${API_BASE}/curated-banks`);
-    if(res.ok) {
+    if (res.ok) {
         let data = await res.json();
         curatedBanksList.innerHTML = '';
         data.banks.forEach(b => {
@@ -243,20 +377,57 @@ async function loadCuratedBanks() {
 
 async function importBank(sourceBankId) {
     let res = await fetch(`${API_BASE}/banks/${defaultBankId}/import/${sourceBankId}`, { method: 'POST' });
-    if(res.ok) {
+    if (res.ok) {
         libraryModal.classList.remove('active');
         await loadQuestions();
     }
 }
 
-// Event Listeners
+// ─── Go Live / Lobby Launch ───────────────────────────────────────────────────
+async function goLive() {
+    btnStartEvent.disabled = true;
+    btnStartEvent.textContent = 'Going live...';
+
+    try {
+        const res = await fetch(`${API_BASE}/go-live`, { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            showLobbyOverlay(data.joinCode, data.qrCodeUrl, data.displayUrl);
+        } else {
+            const err = await res.json();
+            alert(err.error || 'Could not go live. Please try again.');
+            btnStartEvent.disabled = false;
+            btnStartEvent.textContent = 'Start Event';
+        }
+    } catch (e) {
+        alert('Network error. Please try again.');
+        btnStartEvent.disabled = false;
+        btnStartEvent.textContent = 'Start Event';
+    }
+}
+
+function showLobbyOverlay(joinCode, qrCodeUrl, displayUrl) {
+    lobbyPinCode.textContent = joinCode;
+    lobbyQrImg.src = qrCodeUrl;
+    lobbyDisplayLink.href = displayUrl;
+    lobbyOverlay.classList.remove('hidden');
+}
+
+// ─── Event Listeners ──────────────────────────────────────────────────────────
 addQuestionBtn.addEventListener('click', addNewQuestion);
 deleteQBtn.addEventListener('click', deleteActiveQuestion);
 addOptionBtn.addEventListener('click', addNewOption);
 btnImportLibrary.addEventListener('click', loadCuratedBanks);
+btnStartEvent.addEventListener('click', goLive);
+closeLobbyBtn.addEventListener('click', () => lobbyOverlay.classList.add('hidden'));
 
 qTypeSelect.addEventListener('change', updateActiveQuestion);
 qPromptInput.addEventListener('blur', updateActiveQuestion);
 
-// Startup
+// Close library modal when clicking the backdrop
+libraryModal.addEventListener('click', (e) => {
+    if (e.target === libraryModal) libraryModal.classList.remove('active');
+});
+
+// ─── Startup ──────────────────────────────────────────────────────────────────
 init();

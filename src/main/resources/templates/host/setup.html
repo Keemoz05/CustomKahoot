@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Setup - QuizYa</title>
+    <title th:text="${event.title} + ' — Setup — QuizYa'">Event Setup - QuizYa</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <link rel="stylesheet" th:href="@{/css/setup.css}">
     <script th:inline="javascript">
@@ -13,7 +13,8 @@
     </script>
 </head>
 <body class="setup-layout">
-    <!-- Top Navbar -->
+
+    <!-- ── Top Navbar ─────────────────────────────────────── -->
     <header class="setup-header">
         <div class="header-left">
             <div class="nav-controls">
@@ -24,12 +25,14 @@
         <div class="header-right">
             <button class="btn-outline btn-sm" id="btnImportLibrary">Library</button>
             <button class="btn-outline btn-sm">Settings</button>
-            <button class="btn-primary btn-sm">Start Event</button>
+            <!-- Start Event button: triggers Go Live flow -->
+            <button class="btn-primary btn-sm" id="btnStartEvent">Start Event</button>
         </div>
     </header>
 
     <div class="setup-container">
-        <!-- Left Sidebar: Question List -->
+
+        <!-- ── Left Sidebar: Question List ────────────────── -->
         <aside class="sidebar-questions" style="padding-top: var(--space-4);">
             <button id="addQuestionBtn" class="add-q-btn">+ Add slide</button>
             <div id="questionList" class="thumbnail-list">
@@ -37,12 +40,12 @@
             </div>
         </aside>
 
-        <!-- Main Editor Area -->
+        <!-- ── Main Editor Area ───────────────────────────── -->
         <main class="editor-main">
             <div id="emptyEditorState" class="empty-editor">
                 <h2>Select or add a question</h2>
             </div>
-            
+
             <div id="activeEditor" class="active-editor hidden">
                 <div class="floating-toolbar">
                     <div class="editor-controls-left">
@@ -60,11 +63,41 @@
 
                 <div class="canvas-area">
                     <textarea id="questionPrompt" class="prompt-input" placeholder="How are you feeling today?" rows="3"></textarea>
-                    
-                    <div class="media-placeholder">
-                        <span>+ Add Media</span>
+
+                    <!-- ── Media Upload Zone (Week 3) ──────── -->
+                    <div class="media-zone" id="mediaZone">
+
+                        <!-- Empty state: no media attached -->
+                        <div class="media-empty" id="mediaEmpty">
+                            <div class="media-upload-icon">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <path d="m21 15-5-5L5 21"/>
+                                </svg>
+                            </div>
+                            <p class="media-hint">Drag a photo or video here</p>
+                            <p class="media-hint-sub">or <span class="media-browse-link" id="mediaBrowseLink">click to browse</span></p>
+                            <!-- Hidden file input — triggered by click on the zone or browse link -->
+                            <input type="file" id="mediaFileInput" accept="image/*,video/*" hidden>
+                        </div>
+
+                        <!-- Preview state: media attached -->
+                        <div class="media-preview hidden" id="mediaPreview">
+                            <img id="mediaPreviewImg" src="" alt="Question media" class="media-preview-img">
+                            <div class="media-preview-overlay">
+                                <button class="btn-remove-media" id="removeMediaBtn" title="Remove media">✕ Remove</button>
+                            </div>
+                        </div>
+
+                        <!-- Uploading state: progress indicator -->
+                        <div class="media-uploading hidden" id="mediaUploading">
+                            <div class="upload-spinner"></div>
+                            <p class="media-hint">Uploading...</p>
+                        </div>
+
                     </div>
-                    
+                    <!-- ── End Media Zone ──────────────────── -->
+
                     <div class="answers-section">
                         <div id="optionsContainer" class="options-grid">
                             <!-- Options injected here -->
@@ -76,7 +109,7 @@
         </main>
     </div>
 
-    <!-- Question Library Modal -->
+    <!-- ── Question Library Modal ─────────────────────────── -->
     <div id="libraryModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -85,10 +118,42 @@
             </div>
             <div class="modal-body">
                 <div class="banks-list" id="curatedBanksList">
-
                     <!-- Curated banks injected here -->
-                     
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Lobby Launch Overlay (Week 3) ──────────────────── -->
+    <!--
+        Shown when the host clicks "Start Event".
+        Displays the QR code and join code so the host can share them
+        before opening the venue display screen.
+    -->
+    <div id="lobbyOverlay" class="lobby-overlay hidden">
+        <div class="lobby-modal">
+            <div class="lobby-modal-header">
+                <h2 class="lobby-modal-title">Your event is live! 🎉</h2>
+                <button class="btn-ghost close-btn" id="closeLobbyBtn">✕</button>
+            </div>
+            <div class="lobby-modal-body">
+                <p class="lobby-modal-hint">Share this QR code or PIN with your guests.</p>
+
+                <!-- QR Code image (populated by JS from the API response) -->
+                <div class="lobby-qr-wrapper">
+                    <img id="lobbyQrImg" src="" alt="Scan to join" class="lobby-qr-img">
+                </div>
+
+                <!-- PIN in large monospace -->
+                <div class="lobby-pin-row">
+                    <span class="lobby-pin-label">PIN</span>
+                    <span class="lobby-pin-code" id="lobbyPinCode">—</span>
+                </div>
+
+                <!-- Open venue display in a new tab -->
+                <a id="lobbyDisplayLink" href="#" target="_blank" class="btn-primary lobby-display-btn">
+                    ⛶ Open Venue Display
+                </a>
             </div>
         </div>
     </div>

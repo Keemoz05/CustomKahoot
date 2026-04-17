@@ -4,10 +4,13 @@ import com.syed.QuizYa.model.Event;
 import com.syed.QuizYa.model.QuestionBank;
 import com.syed.QuizYa.repository.EventRepository;
 import com.syed.QuizYa.repository.QuestionBankRepository;
+import com.syed.QuizYa.service.QrCodeGenerator;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -91,5 +94,46 @@ public class EventService {
     public void deleteEvent(Long id) {
         questionService.deleteEventContent(id);
         eventRepository.deleteById(id);
+    }
+
+    /**
+     * Transitions an event from DRAFT to LOBBY.
+     * Generates a QR code pointing to the guest join URL and saves it on the event.
+     *
+     * @param eventId   The event to go live
+     * @param baseUrl   The server base URL (e.g. "http://localhost:8080") injected from properties
+     * @throws IllegalStateException if the event is not in DRAFT status
+     */
+    @Transactional
+    //called from host api controller
+    public Event goLive(Long eventId, String baseUrl) {
+        Event event = eventRepository.findById(eventId).orElseThrow();
+
+        if (!"DRAFT".equals(event.getStatus())) {
+            throw new IllegalStateException("Event must be in DRAFT status to go live");
+        }
+
+        event.setStatus("LOBBY");
+        event.setStartedAt(OffsetDateTime.now());
+
+        // Build the join URL guests will scan — e.g. http://localhost:8080/join?pin=ABC123
+        String joinUrl = baseUrl + "/join?pin=" + event.getJoinCode();
+        try {
+            String qrDataUri = QrCodeGenerator.generateDataUri(joinUrl);
+            event.setQrCodeUrl(qrDataUri);
+        } catch (Exception e) {
+            // QR generation failure should not block going live — log and continue
+            System.err.println("QR code generation failed: " + e.getMessage());
+        }
+
+        return eventRepository.save(event);
+    }
+
+    /**
+     * Finds an event by its unique join code.
+     * Used by DisplayController to load the venue lobby page.
+     */
+    public Optional<Event> getEventByJoinCode(String joinCode) {
+        return eventRepository.findByJoinCode(joinCode);
     }
 }

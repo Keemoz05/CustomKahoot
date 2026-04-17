@@ -21,7 +21,7 @@ public class Event {
     @Column(name = "join_code", length = 10, nullable = false, unique = true)
     private String joinCode;
 
-    @Column(name = "qr_code_url", length = 500)
+    @Column(name = "qr_code_url", columnDefinition = "TEXT")
     private String qrCodeUrl;
 
     @Column(length = 20, nullable = false)

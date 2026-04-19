@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${event.title} + ' — Live Controls — QuizYa'">Live Controls - QuizYa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script th:inline="javascript">
+        window.EVENT_ID = /*[[${event.id}]]*/ 0;
+    </script>
+    <style>
+        .live-layout {
+            background-color: var(--color-warm-white);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .live-header {
+            background: white;
+            padding: var(--space-4) var(--space-6);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--color-pebble);
+        }
+        .header-title {
+            font-family: 'Fraunces', serif;
+            margin: 0;
+            font-size: var(--text-xl);
+            color: var(--color-charcoal);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: var(--text-sm);
+            font-weight: 500;
+            background: var(--color-sage);
+            color: var(--color-deep-teal);
+        }
+        .live-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: var(--space-8);
+        }
+        .control-panel {
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            padding: var(--space-8);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .question-preview {
+            font-size: var(--text-xl);
+            font-weight: 600;
+            margin-bottom: var(--space-6);
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+        }
+        .btn-control {
+            padding: var(--space-4);
+            font-size: var(--text-base);
+            border-radius: var(--radius-lg);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-next { background: var(--color-deep-teal); color: white; }
+        .btn-next:hover { opacity: 0.9; }
+        .btn-lock { background: var(--color-slate); color: white; }
+        .btn-lock:hover { opacity: 0.9; }
+        .btn-reveal { background: var(--color-terracotta); color: white; }
+        .btn-reveal:hover { opacity: 0.9; }
+        .btn-leaderboard { background: var(--color-charcoal); color: white; }
+        .btn-leaderboard:hover { opacity: 0.9; }
+        
+        .pause-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-3);
+            margin-top: var(--space-8);
+            padding-top: var(--space-6);
+            border-top: 1px solid var(--color-pebble);
+        }
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: var(--color-pebble);
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-switch.active { background: var(--color-terracotta); }
+        .toggle-knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .toggle-switch.active .toggle-knob { transform: translateX(24px); }
+        .pause-label { font-weight: 500; color: var(--color-slate); }
+        
+        .roster-preview {
+            margin-top: var(--space-8);
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            box-shadow: var(--shadow-sm);
+        }
+        .roster-title {
+            font-size: var(--text-lg);
+            font-weight: 600;
+            margin-bottom: var(--space-4);
+            border-bottom: 1px solid var(--color-pebble);
+            padding-bottom: var(--space-2);
+        }
+    </style>
+</head>
+<body class="live-layout">
+    <header class="live-header">
+        <h1 class="header-title" th:text="${event.title}">Event Title</h1>
+        <div class="status-badge" id="statusBadge">LOBBY</div>
+    </header>
+
+    <main class="live-main">
+        <div class="control-panel">
+            <div id="questionPreview" class="question-preview">
+                Waiting to start...
+            </div>
+
+            <div class="controls-grid">
+                <button id="btnNext" class="btn-control btn-next">Next Slide</button>
+                <button id="btnLock" class="btn-control btn-lock">Lock Answers</button>
+                <button id="btnReveal" class="btn-control btn-reveal">Reveal Answer</button>
+                <button id="btnLeaderboard" class="btn-control btn-leaderboard">Leaderboard</button>
+            </div>
+
+            <div class="pause-toggle">
+                <span class="pause-label">Storyteller Pause</span>
+                <div id="togglePause" class="toggle-switch">
+                    <div class="toggle-knob"></div>
+                </div>
+            </div>
+
+            <button id="btnFinish" class="btn-control" style="width: 100%; margin-top: 2rem; background: var(--color-terracotta); color: white;">End Event</button>
+        </div>
+
+        <div class="roster-preview">
+            <div class="roster-title">Live Stats</div>
+            <div>Connected Guests: <span id="guestCount">0</span></div>
+            <div>Answers Submitted: <span id="answerCount">0</span></div>
+        </div>
+    </main>
+
+    <script th:src="@{/js/host-live.js}"></script>
+</body>
+</html>

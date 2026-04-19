@@ -2,6 +2,7 @@ package com.syed.QuizYa.model;
 
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "guest_answers", uniqueConstraints = {
@@ -14,10 +15,12 @@ public class GuestAnswer {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private Event event;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guest_id", nullable = false)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private EventGuest guest;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -34,15 +37,12 @@ public class GuestAnswer {
     @Column(name = "is_correct", nullable = false)
     private Boolean isCorrect = false;
 
-    @Column(name = "points_awarded", nullable = false)
-    private Integer pointsAwarded = 0;
-
     @Column(name = "submitted_at", nullable = false, updatable = false)
     private OffsetDateTime submittedAt;
 
     @PrePersist
     protected void onCreate() {
-        submittedAt = OffsetDateTime.now();
+        submittedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
 
     // Getters and Setters
@@ -60,8 +60,6 @@ public class GuestAnswer {
     public void setWordCloudText(String wordCloudText) { this.wordCloudText = wordCloudText; }
     public Boolean getCorrect() { return isCorrect; }
     public void setCorrect(Boolean correct) { isCorrect = correct; }
-    public Integer getPointsAwarded() { return pointsAwarded; }
-    public void setPointsAwarded(Integer pointsAwarded) { this.pointsAwarded = pointsAwarded; }
     public OffsetDateTime getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(OffsetDateTime submittedAt) { this.submittedAt = submittedAt; }
 }

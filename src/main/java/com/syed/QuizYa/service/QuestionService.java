@@ -67,7 +67,7 @@ public class QuestionService {
         q.setQuestionType(type);
         q.setPromptText("New Question");
         q.setSortOrder(nextSortOrder);
-        q.setTimeLimitSeconds(20);
+        q.setTimeLimitSeconds(30);
         q = questionRepository.save(q);
 
         // Auto-add 4 options for MCQs/Polls
@@ -92,12 +92,15 @@ public class QuestionService {
      * this method has business logic to actively delete the old orphaned options (A,B,C,D).
      */
     @Transactional
-    public Question updateQuestion(Long questionId, String type, String prompt) {
+    public Question updateQuestion(Long questionId, String type, String prompt, Integer timeLimitSeconds) {
         Question q = questionRepository.findById(questionId).orElseThrow();
         
         boolean typeChanged = !q.getQuestionType().equals(type);
         q.setQuestionType(type);
         q.setPromptText(prompt);
+        if (timeLimitSeconds != null) {
+            q.setTimeLimitSeconds(timeLimitSeconds);
+        }
         q = questionRepository.save(q);
 
         if (typeChanged && ("WORD_CLOUD".equals(type) || "SLIDE".equals(type))) {

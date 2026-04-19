@@ -10,6 +10,7 @@ const emptyState      = document.getElementById('emptyEditorState');
 const activeEditor    = document.getElementById('activeEditor');
 
 const qTypeSelect     = document.getElementById('questionTypeSelect');
+const qTimerSelect    = document.getElementById('questionTimerSelect');
 const qPromptInput    = document.getElementById('questionPrompt');
 const optionsContainer = document.getElementById('optionsContainer');
 const addOptionBtn    = document.getElementById('addOptionBtn');
@@ -37,6 +38,16 @@ const closeLobbyBtn    = document.getElementById('closeLobbyBtn');
 const lobbyQrImg       = document.getElementById('lobbyQrImg');
 const lobbyPinCode     = document.getElementById('lobbyPinCode');
 const lobbyDisplayLink = document.getElementById('lobbyDisplayLink');
+
+// Week 5: Link to the new Host Live Controls page (/host/events/{id}/live).
+// This <a> element is shown inside the lobby overlay alongside the
+// Venue Display link, so after going live the host can navigate to
+// either the projected display or their game-pacing control panel.
+const hostLiveLink     = document.getElementById('hostLiveLink');
+
+// Start event confirmation
+const confirmStartModal = document.getElementById('confirmStartModal');
+const btnConfirmStart   = document.getElementById('btnConfirmStart');
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -103,6 +114,9 @@ function selectQuestion(qId) {
     activeEditor.classList.remove('hidden');
 
     qTypeSelect.value = q.type;
+    if (qTimerSelect) {
+        qTimerSelect.value = (q.timeLimitSeconds !== undefined && q.timeLimitSeconds !== null) ? q.timeLimitSeconds : 30;
+    }
     qPromptInput.value = q.prompt;
 
     // Restore the media zone to the correct state for this question
@@ -304,10 +318,11 @@ async function addNewQuestion() {
 
 async function updateActiveQuestion() {
     if (!activeQuestionId) return;
+    let timeLimitSeconds = qTimerSelect ? qTimerSelect.value : 30;
     let res = await fetch(`${API_BASE}/questions/${activeQuestionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: qTypeSelect.value, prompt: qPromptInput.value })
+        body: JSON.stringify({ type: qTypeSelect.value, prompt: qPromptInput.value, timeLimitSeconds: timeLimitSeconds })
     });
     if (res.ok) {
         let q = currentQuestions.find(q => q.id === activeQuestionId);
@@ -316,6 +331,7 @@ async function updateActiveQuestion() {
         } else if (q) {
             q.type = qTypeSelect.value;
             q.prompt = qPromptInput.value;
+            q.timeLimitSeconds = timeLimitSeconds;
             renderSidebar();
         }
     }
@@ -385,31 +401,46 @@ async function importBank(sourceBankId) {
 
 // ─── Go Live / Lobby Launch ───────────────────────────────────────────────────
 async function goLive() {
-    btnStartEvent.disabled = true;
-    btnStartEvent.textContent = 'Going live...';
+    btnConfirmStart.disabled = true;
+    btnConfirmStart.textContent = 'Going live...';
 
     try {
         const res = await fetch(`${API_BASE}/go-live`, { method: 'POST' });
         if (res.ok) {
             const data = await res.json();
-            showLobbyOverlay(data.joinCode, data.qrCodeUrl, data.displayUrl);
+            
+            // Close the confirmation modal
+            confirmStartModal.classList.remove('active');
+            
+            // Automatically open the display page in a new tab
+            window.open(data.displayUrl, '_blank');
+            
+            // Week 5: The backend now returns hostLiveUrl alongside the
+            // existing joinCode/qrCodeUrl/displayUrl, so we pass it through
+            // to showLobbyOverlay() to populate the "Live Controls" link.
+            showLobbyOverlay(data.joinCode, data.qrCodeUrl, data.displayUrl, data.hostLiveUrl);
         } else {
             const err = await res.json();
             alert(err.error || 'Could not go live. Please try again.');
-            btnStartEvent.disabled = false;
-            btnStartEvent.textContent = 'Start Event';
+            btnConfirmStart.disabled = false;
+            btnConfirmStart.textContent = 'Yes, Start';
         }
     } catch (e) {
         alert('Network error. Please try again.');
-        btnStartEvent.disabled = false;
-        btnStartEvent.textContent = 'Start Event';
+        btnConfirmStart.disabled = false;
+        btnConfirmStart.textContent = 'Yes, Start';
     }
 }
 
-function showLobbyOverlay(joinCode, qrCodeUrl, displayUrl) {
+// Week 5: Updated to accept hostLiveUrl as a 4th parameter.
+// The lobby overlay now shows TWO action links:
+//   1. "Venue Display" → opens the projected display in a new tab
+//   2. "Live Controls" → navigates to /host/events/{id}/live
+function showLobbyOverlay(joinCode, qrCodeUrl, displayUrl, hostLiveUrl) {
     lobbyPinCode.textContent = joinCode;
     lobbyQrImg.src = qrCodeUrl;
     lobbyDisplayLink.href = displayUrl;
+    hostLiveLink.href = hostLiveUrl;   // Week 5: populate the live controls link
     lobbyOverlay.classList.remove('hidden');
 }
 
@@ -418,10 +449,14 @@ addQuestionBtn.addEventListener('click', addNewQuestion);
 deleteQBtn.addEventListener('click', deleteActiveQuestion);
 addOptionBtn.addEventListener('click', addNewOption);
 btnImportLibrary.addEventListener('click', loadCuratedBanks);
-btnStartEvent.addEventListener('click', goLive);
+btnStartEvent.addEventListener('click', () => confirmStartModal.classList.add('active'));
+btnConfirmStart.addEventListener('click', goLive);
 closeLobbyBtn.addEventListener('click', () => lobbyOverlay.classList.add('hidden'));
 
 qTypeSelect.addEventListener('change', updateActiveQuestion);
+if (qTimerSelect) {
+    qTimerSelect.addEventListener('change', updateActiveQuestion);
+}
 qPromptInput.addEventListener('blur', updateActiveQuestion);
 
 // Close library modal when clicking the backdrop

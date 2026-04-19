@@ -2,6 +2,7 @@ package com.syed.QuizYa.model;
 
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "questions")
@@ -43,13 +44,13 @@ public class Question {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = OffsetDateTime.now();
+        createdAt = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         updatedAt = createdAt;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+        updatedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
 
     // Getters and Setters

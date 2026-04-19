@@ -218,6 +218,7 @@
 .mini-select {
     width: auto;
     height: auto;
+    min-width: unset;
 }
 
 .btn-danger-text {

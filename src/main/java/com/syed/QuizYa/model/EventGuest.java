@@ -2,6 +2,7 @@ package com.syed.QuizYa.model;
 
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "event_guests")
@@ -12,6 +13,7 @@ public class EventGuest {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id", nullable = false)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private Event event;
 
     @Column(name = "display_name", length = 50, nullable = false)
@@ -19,9 +21,6 @@ public class EventGuest {
 
     @Column(name = "session_token", length = 255, nullable = false, unique = true)
     private String sessionToken;
-
-    @Column(name = "total_score", nullable = false)
-    private Integer totalScore = 0;
 
     @Column(name = "correct_count", nullable = false)
     private Integer correctCount = 0;
@@ -34,7 +33,7 @@ public class EventGuest {
 
     @PrePersist
     protected void onCreate() {
-        joinedAt = OffsetDateTime.now();
+        joinedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
 
     // Getters and Setters
@@ -46,8 +45,6 @@ public class EventGuest {
     public void setDisplayName(String displayName) { this.displayName = displayName; }
     public String getSessionToken() { return sessionToken; }
     public void setSessionToken(String sessionToken) { this.sessionToken = sessionToken; }
-    public Integer getTotalScore() { return totalScore; }
-    public void setTotalScore(Integer totalScore) { this.totalScore = totalScore; }
     public Integer getCorrectCount() { return correctCount; }
     public void setCorrectCount(Integer correctCount) { this.correctCount = correctCount; }
     public Boolean getConnected() { return isConnected; }

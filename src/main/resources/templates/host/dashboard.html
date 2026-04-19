@@ -39,6 +39,8 @@
                     <div style="display: flex; gap: var(--space-2);">
                         <button type="button" class="btn-outline" style="padding: 4px 8px; font-size: 0.8rem; border-color: var(--color-pebble); border-radius: var(--radius-sm); cursor: pointer;" 
                                 th:attr="data-id=${event.id}, data-title=${event.title}" onclick="openRenameModal(this.getAttribute('data-id'), this.getAttribute('data-title'))">Rename</button>
+                        <button type="button" class="btn-outline" style="padding: 4px 8px; font-size: 0.8rem; border-color: var(--color-terracotta); color: var(--color-terracotta); border-radius: var(--radius-sm); cursor: pointer;" 
+                                th:attr="data-id=${event.id}, data-title=${event.title}" onclick="openResetModal(this.getAttribute('data-id'), this.getAttribute('data-title'))">Reset</button>
                         <button type="button" class="btn-outline" style="padding: 4px 8px; font-size: 0.8rem; border-color: var(--color-rosewood); color: var(--color-rosewood); border-radius: var(--radius-sm); cursor: pointer;" 
                                 th:attr="data-id=${event.id}, data-title=${event.title}" onclick="openDeleteModal(this.getAttribute('data-id'), this.getAttribute('data-title'))">Delete</button>
                     </div>
@@ -91,6 +93,19 @@
                     <button type="submit" class="btn-primary auto-width-btn">Save</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Reset Event Modal -->
+    <div id="resetModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-top: 0; margin-bottom: var(--space-4); color: var(--color-terracotta);">Reset Event</h2>
+            <p style="margin-top: 0; margin-bottom: var(--space-6);">Are you sure you want to reset "<span id="resetEventTitle" style="font-weight:600;"></span>"? This will clear all guest progress and set it back to DRAFT.</p>
+            <input type="hidden" id="resetEventId">
+            <div class="modal-actions">
+                <button type="button" class="btn-primary btn-outline auto-width-btn" onclick="document.getElementById('resetModal').classList.remove('active')">Cancel</button>
+                <button type="button" class="btn-primary auto-width-btn"  onclick="submitReset()">Reset Event</button>
+            </div>
         </div>
     </div>
 
@@ -156,6 +171,25 @@
                 }
             } catch (err) {
                 console.error('Failed to delete event', err);
+            }
+        }
+
+        function openResetModal(id, title) {
+            document.getElementById('resetEventId').value = id;
+            document.getElementById('resetEventTitle').innerText = title;
+            document.getElementById('resetModal').classList.add('active');
+        }
+
+        async function submitReset() {
+            const id = document.getElementById('resetEventId').value;
+            try {
+                // Reusing the /finish endpoint which clears guests and resets to DRAFT
+                const res = await fetch(`/api/host/events/${id}/finish`, { method: 'POST' });
+                if (res.ok) {
+                    window.location.reload();
+                }
+            } catch (err) {
+                console.error('Failed to reset event', err);
             }
         }
     </script>

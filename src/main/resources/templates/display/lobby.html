@@ -16,73 +16,281 @@
         <!-- Top bar: branding + guest count -->
         <div class="lobby-topbar">
             <span class="brand-mark">QuizYa</span>
-            <span class="guest-counter" id="guestCounter">0 joined</span>
+            <span class="guest-counter" id="guestCounter" th:text="${guestCount} + ' joined'">0 joined</span>
         </div>
 
         <!-- Event title -->
         <h1 class="lobby-event-title" th:text="${event.title}">Event Title</h1>
 
-        <!-- Join instruction -->
-        <p class="lobby-instruction">Scan the QR code or enter the PIN at</p>
-        <p class="lobby-join-url">quizya.com/join</p>
-
-        <!-- QR Code -->
-        <div class="qr-wrapper">
-            <!-- The qrCodeUrl is a Base64 data URI — no external request needed -->
-            <!-- th is thymeleaf, the jinja version of java -->
-             <!-- event object is retrieved from displaycontroller.java -->
-            <img
+        <!-- Main Content Grid -->
+        <div class="lobby-main-grid">
             
-                th:if="${event.qrCodeUrl != null and !event.qrCodeUrl.isEmpty()}"
-                th:src="${event.qrCodeUrl}"
-                class="qr-image"
-                alt="Scan to join the event"
-                id="qrImage">
-            <!-- Fallback if QR hasn't been generated yet -->
-            <div th:unless="${event.qrCodeUrl != null and !event.qrCodeUrl.isEmpty()}"
-                 class="qr-placeholder">
-                <span>QR code will appear<br>when you go live</span>
+            <!-- Left Side: Join Instructions + QR -->
+            <div class="lobby-qr-section">
+                <div class="lobby-instruction-group">
+                    <p class="lobby-instruction">Scan the QR code or enter the PIN at</p>
+                    <p class="lobby-join-url">quizya.com/join</p>
+                </div>
+
+                <div class="qr-wrapper">
+                    <img th:if="${event.qrCodeUrl != null and !event.qrCodeUrl.isEmpty()}"
+                         th:src="${event.qrCodeUrl}"
+                         class="qr-image"
+                         alt="Scan to join"
+                         id="qrImage">
+                    <div th:unless="${event.qrCodeUrl != null and !event.qrCodeUrl.isEmpty()}"
+                         class="qr-placeholder">
+                        <span>QR code will appear<br>when you go live</span>
+                    </div>
+                </div>
+
+                <div class="pin-display">
+                    <span class="pin-label">PIN</span>
+                    <span class="pin-code" th:text="${joinCode}">ABC123</span>
+                </div>
+            </div>
+
+            <!-- Right Side: Guest Roster -->
+            <div class="lobby-roster-section">
+                <h3 class="roster-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    Joined Guests
+                </h3>
+                <div class="guest-roster" id="guestRoster">
+                    <p th:if="${guests.empty}" class="roster-waiting">Waiting for guests to join...</p>
+                    <span th:each="g : ${guests}" class="guest-name-badge" th:text="${g.displayName}"></span>
+                </div>
             </div>
         </div>
 
-        <!-- Join Code -->
-        <div class="pin-display">
-            <span class="pin-label">PIN</span>
-            <span class="pin-code" th:text="${joinCode}">ABC123</span>
-        </div>
-
-        <!-- Guest name roster — names animate in via WebSocket in Week 4 -->
-        <!-- For Week 3 this is a visual placeholder showing the layout is ready -->
-        <div class="guest-roster" id="guestRoster">
-            <p class="roster-waiting">Waiting for guests to join...</p>
-        </div>
-
     </div>
 
-    <!-- Fullscreen prompt on first load -->
+    <!--
+        Week 5: Live Game Screen
+
+        This entire div is hidden during the lobby phase and revealed when
+        the host presses "Next Slide" (SHOW_QUESTION event).  It replaces
+        the QR/roster lobby view and shows:
+          - The question prompt text (livePrompt)
+          - Answer option tiles (liveOptions) — read-only, not clickable
+          - A leaderboard list (liveLeaderboard) — shown only during
+            SHOW_LEADERBOARD events, with the top 5 guests and their
+            correct-answer counts
+          - A full-screen dark overlay (pauseOverlay) — shown when the
+            host activates Storyteller Pause
+
+        The switching between lobby/live screens is handled by
+        handleEventMessage() in the script below, which toggles CSS
+        display:none/flex on the two container divs.
+    -->
+    <div id="liveGameScreen" class="lobby-container" style="display: none; text-align: center; justify-content: center; align-items: center; flex-direction: column;">
+        <h1 id="livePrompt" style="font-size: 3rem; margin-bottom: 2rem;">Question</h1>
+        <div id="liveOptions" style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 800px;">
+            <!-- Options will go here -->
+        </div>
+        <div id="liveLeaderboard" style="display: none; width: 100%; max-width: 600px;">
+            <h2 style="font-size: 2.5rem; margin-bottom: 2rem;">Top Players</h2>
+            <ul id="leaderboardList" style="list-style: none; padding: 0; font-size: 1.5rem; text-align: left; background: white; border-radius: 1rem; padding: 2rem; color: black;">
+            </ul>
+        </div>
+        <div id="pauseOverlay" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; color: white;">
+            <h1 style="font-size: 4rem;">Eyes to the front!</h1>
+        </div>
+    </div>
+
+    <!-- Finished Screen -->
+    <div id="finishedScreen" class="lobby-container" style="display: none; text-align: center; justify-content: center; align-items: center; flex-direction: column;">
+        <h1 style="font-size: 5rem; color: var(--color-deep-teal); margin-bottom: 1rem;">Thanks for playing!</h1>
+        <p style="font-size: 2rem; color: var(--color-slate);">This event has concluded.</p>
+    </div>
+
+    <!-- Fullscreen prompt -->
     <div class="fullscreen-prompt" id="fullscreenPrompt">
-        <button class="btn-fullscreen" id="btnFullscreen">⛶ Go Fullscreen</button>
+        <button class="btn-fullscreen" id="btnFullscreen">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+            Go Fullscreen
+        </button>
     </div>
 
-    <script>
-        // Fullscreen toggle — the host presses this before pointing the projector
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script th:inline="javascript">
         const promptEl = document.getElementById('fullscreenPrompt');
         const btnFs = document.getElementById('btnFullscreen');
 
+        // Fullscreen toggle
         btnFs.addEventListener('click', () => {
-            document.documentElement.requestFullscreen().catch(() => {});
-            promptEl.style.display = 'none';
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
         });
 
-        // Hide prompt once fullscreen is active via keyboard (F11)
+        // Listen for fullscreen changes to update UI and fix potential resize issues
         document.addEventListener('fullscreenchange', () => {
-            if (document.fullscreenElement) promptEl.style.display = 'none';
+            if (document.fullscreenElement) {
+                btnFs.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg> Exit Fullscreen`;
+                promptEl.style.opacity = '0.5';
+            } else {
+                btnFs.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg> Go Fullscreen`;
+                promptEl.style.opacity = '1';
+                // Trigger a small layout shift to ensure everything snaps back
+                window.dispatchEvent(new Event('resize'));
+            }
         });
 
-        /* Week 4+: WebSocket STOMP subscription will go here to:
-           - Receive GUEST_JOINED events and animate names into #guestRoster
-           - Update #guestCounter with the live count
-           - Receive GAME_START to transition to the first question slide */
+        /* WebSocket STOMP subscription for Guest Joins */
+        const eventId = /*[[${event.id}]]*/ null;
+        let guestCount = /*[[${guestCount}]]*/ 0;
+        let stompClient = null;
+
+        // Week 5: Handles all game-state messages from the host's live
+        // controls.  This function is called for every lobby-channel message
+        // that is NOT a GUEST_JOINED event (see connectLobby below).
+        //
+        // The function switches the venue display between two screens:
+        //   - lobbyScreen: the QR/roster lobby (shown before game starts)
+        //   - liveScreen:  the question/leaderboard/pause view
+        //
+        // Supported message types:
+        //   SHOW_QUESTION    → show question prompt + option tiles
+        //   LOCK_ANSWERS     → update prompt to "Answers Locked!"
+        //   REVEAL_ANSWER    → update prompt to "Correct Answer Revealed"
+        //   SHOW_LEADERBOARD → show ranked list of top 5 guests
+        //   PAUSE            → show full-screen dark overlay
+        //   RESUME           → hide the pause overlay
+        function handleEventMessage(msg) {
+            const lobbyScreen = document.querySelector('.lobby-main-grid').parentElement;
+            const liveScreen = document.getElementById('liveGameScreen');
+            
+            if (msg.type === 'SHOW_QUESTION') {
+                lobbyScreen.style.display = 'none';
+                liveScreen.style.display = 'flex';
+                document.getElementById('liveLeaderboard').style.display = 'none';
+                document.getElementById('liveOptions').style.display = 'flex';
+                
+                document.getElementById('livePrompt').innerText = msg.prompt || 'Question...';
+                const optsContainer = document.getElementById('liveOptions');
+                optsContainer.innerHTML = '';
+                if (msg.options) {
+                    msg.options.forEach(opt => {
+                        const d = document.createElement('div');
+                        d.style.padding = '2rem';
+                        d.style.background = opt.color || '#333';
+                        d.style.color = 'white';
+                        d.style.fontSize = '1.5rem';
+                        d.style.borderRadius = '1rem';
+                        d.style.flex = '1 1 45%';
+                        d.innerText = opt.text;
+                        d.id = 'opt-' + opt.id;
+                        optsContainer.appendChild(d);
+                    });
+                }
+            } else if (msg.type === 'LOCK_ANSWERS') {
+                document.getElementById('livePrompt').innerText = "Answers Locked! Waiting for reveal...";
+            } else if (msg.type === 'REVEAL_ANSWER') {
+                document.getElementById('livePrompt').innerText = "Correct Answer Revealed";
+                // If we had correct flag we could highlight it, but for now just show text
+            } else if (msg.type === 'SHOW_LEADERBOARD') {
+                lobbyScreen.style.display = 'none';
+                liveScreen.style.display = 'flex';
+                document.getElementById('liveOptions').style.display = 'none';
+                document.getElementById('liveLeaderboard').style.display = 'block';
+                document.getElementById('livePrompt').innerText = "Leaderboard";
+                
+                const list = document.getElementById('leaderboardList');
+                list.innerHTML = '';
+                if (msg.topGuests) {
+                    msg.topGuests.forEach((g, i) => {
+                        const li = document.createElement('li');
+                        li.style.padding = '1rem 0';
+                        li.style.borderBottom = '1px solid #ccc';
+                        li.innerText = `${i+1}. ${g.name} - ${g.score} points`;
+                        list.appendChild(li);
+                    });
+                } else {
+                    list.innerHTML = '<li>Fetching scores...</li>';
+                }
+            } else if (msg.type === 'PAUSE') {
+                document.getElementById('pauseOverlay').style.display = 'flex';
+            } else if (msg.type === 'RESUME') {
+                document.getElementById('pauseOverlay').style.display = 'none';
+            } else if (msg.type === 'EVENT_FINISHED') {
+                lobbyScreen.style.display = 'none';
+                liveScreen.style.display = 'none';
+                document.getElementById('finishedScreen').style.display = 'flex';
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 5000);
+            }
+        }
+        
+        function connectLobby() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null; 
+            
+            stompClient.connect({}, function (frame) {
+                console.log('Display connected to WebSocket');
+                
+                // Subscribe to the lobby channel.  This channel receives:
+                //   - GUEST_JOINED (from GuestService.joinEvent)
+                //   - ANSWER_SUBMITTED (from GuestApiController)
+                //   - All game-state events (from HostApiController live controls)
+                // We route GUEST_JOINED to the roster handler and everything
+                // else to the game-state handler.
+                stompClient.subscribe('/topic/event/' + eventId + '/lobby', function (message) {
+                    const payload = JSON.parse(message.body);
+                    if (payload.type === 'GUEST_JOINED') {
+                        handleGuestJoined(payload.guestName);
+                    } else {
+                        // Week 5: delegate all other message types to the
+                        // game-state handler that switches between question,
+                        // leaderboard, and pause screens.
+                        handleEventMessage(payload);
+                    }
+                });
+            });
+        }
+        
+        function handleGuestJoined(guestName) {
+            guestCount++;
+            const counterEl = document.getElementById('guestCounter');
+            counterEl.innerText = guestCount + ' joined';
+            
+            const rosterEl = document.getElementById('guestRoster');
+            
+            if (guestCount === 1) {
+                rosterEl.innerHTML = '';
+            }
+            
+            const nameBadge = document.createElement('span');
+            nameBadge.className = 'guest-name-badge';
+            nameBadge.style.animation = 'fadeInUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both';
+            nameBadge.innerText = guestName;
+            
+            rosterEl.appendChild(nameBadge);
+            
+            // Scroll to bottom of roster
+            rosterEl.scrollTop = rosterEl.scrollHeight;
+        }
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(15px) scale(0.9); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        if (eventId) {
+            connectLobby();
+        }
     </script>
 </body>
 </html>
+

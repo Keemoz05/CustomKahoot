@@ -55,6 +55,14 @@
                             <option value="WORD_CLOUD">Word Cloud</option>
                             <option value="SLIDE">Slide</option>
                         </select>
+                        <select id="questionTimerSelect" class="input-field type-select mini-select">
+                            <option value="0">No timer</option>
+                            <option value="10">10s</option>
+                            <option value="20">20s</option>
+                            <option value="30">30s</option>
+                            <option value="60">1m</option>
+                            <option value="120">2m</option>
+                        </select>
                     </div>
                     <div class="editor-controls-right">
                         <button id="deleteQuestionBtn" class="btn-ghost btn-danger-text">Delete</button>
@@ -151,9 +159,31 @@
                 </div>
 
                 <!-- Open venue display in a new tab -->
-                <a id="lobbyDisplayLink" href="#" target="_blank" class="btn-primary lobby-display-btn">
-                    ⛶ Open Venue Display
-                </a>
+                <div class="lobby-modal-actions" style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
+                    <a id="lobbyDisplayLink" href="#" target="_blank" class="btn-primary" style="flex: 1; text-align: center;">
+                        ⛶ Venue Display
+                    </a>
+                    <a id="hostLiveLink" href="#" class="btn-outline" style="flex: 1; text-align: center; border-color: var(--color-deep-teal); color: var(--color-deep-teal);">
+                        ⚙️ Live Controls
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Start Event Confirmation Modal ─────────────────────────── -->
+    <div id="confirmStartModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div class="modal-header">
+                <h2>Start Event</h2>
+                <button type="button" class="btn-ghost close-btn" onclick="document.getElementById('confirmStartModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body" >
+                <p>Are you sure you want to start this event? Guests will be able to join.</p>
+                <div style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
+                    <button class="btn-outline" style="flex: 1;" onclick="document.getElementById('confirmStartModal').classList.remove('active')">Cancel</button>
+                    <button class="btn-primary" style="flex: 1;" id="btnConfirmStart">Yes, Start</button>
+                </div>
             </div>
         </div>
     </div>

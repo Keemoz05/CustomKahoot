@@ -2,6 +2,7 @@ package com.syed.QuizYa.model;
 
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "event_sessions")
@@ -32,7 +33,7 @@ public class EventSession {
     @PrePersist
     protected void onCreate() {
         if (startedAt == null) {
-            startedAt = OffsetDateTime.now();
+            startedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         }
     }
 

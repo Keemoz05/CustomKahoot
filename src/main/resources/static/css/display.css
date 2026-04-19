@@ -43,12 +43,63 @@
 .lobby-container {
     position: relative;
     min-height: 100vh;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 20px;
-    padding: 80px 40px 120px; /* room for topbar + fullscreen prompt */
+    justify-content: flex-start; /* Changed from center to allow better scaling */
+    gap: 2vh;
+    padding: 100px 40px 60px;
+    transition: all 0.3s ease;
+}
+
+/* ── Content Grid ─────────────────────────────────────────── */
+.lobby-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 60px;
+    align-items: center;
+    width: 100%;
+    max-width: 1200px;
+    margin-top: 20px;
+}
+
+.lobby-qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.lobby-roster-section {
+    background: var(--display-card-bg);
+    border: 1px solid var(--display-card-border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    height: 100%;
+    min-height: 450px;
+    display: flex;
+    flex-direction: column;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+}
+
+.roster-title {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--display-teal-light);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.roster-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--display-card-border), transparent);
 }
 
 /* ── Top bar ──────────────────────────────────────────────── */
@@ -60,15 +111,16 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 32px;
-    background: rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(8px);
+    padding: 20px 40px;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
     z-index: 10;
+    border-bottom: 1px solid var(--display-card-border);
 }
 
 .brand-mark {
     font-family: 'Fraunces', serif;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 600;
     color: var(--display-teal-light);
     letter-spacing: -0.3px;
@@ -76,40 +128,45 @@
 
 .guest-counter {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 15px;
-    color: var(--display-muted);
-    background: rgba(255, 255, 255, 0.08);
-    padding: 6px 14px;
+    font-size: 16px;
+    color: var(--display-text);
+    background: var(--display-teal);
+    padding: 8px 18px;
     border-radius: 99px;
-    border: 1px solid var(--display-card-border);
+    box-shadow: 0 4px 15px rgba(13, 148, 136, 0.3);
 }
 
 /* ── Event Title ──────────────────────────────────────────── */
 .lobby-event-title {
     font-family: 'Fraunces', serif;
-    font-size: clamp(28px, 4vw, 52px);
+    font-size: clamp(32px, 5vw, 64px);
     font-weight: 600;
     color: var(--display-text);
     text-align: center;
-    letter-spacing: -0.5px;
-    line-height: 1.15;
-    max-width: 800px;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    max-width: 1000px;
+    margin-bottom: 10px;
 }
 
 /* ── Join instruction ─────────────────────────────────────── */
-.lobby-instruction {
-    font-size: clamp(14px, 1.5vw, 18px);
-    color: var(--display-muted);
+.lobby-instruction-group {
     text-align: center;
-    margin-bottom: -12px;
+    margin-bottom: 20px;
+}
+
+.lobby-instruction {
+    font-size: clamp(16px, 1.8vw, 20px);
+    color: var(--display-muted);
+    margin-bottom: 8px;
 }
 
 .lobby-join-url {
     font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(14px, 1.8vw, 22px);
+    font-size: clamp(18px, 2.2vw, 28px);
     color: var(--display-teal-light);
     letter-spacing: 0.5px;
-    margin-bottom: 4px;
+    font-weight: 600;
 }
 
 /* ── QR Code ──────────────────────────────────────────────── */
@@ -117,21 +174,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: clamp(200px, 28vw, 340px);
-    height: clamp(200px, 28vw, 340px);
+    width: clamp(250px, 35vh, 400px);
+    height: clamp(250px, 35vh, 400px);
     background: #ffffff;
     border-radius: var(--radius-xl);
-    padding: 16px;
+    padding: 24px;
     box-shadow:
         0 0 0 1px rgba(255,255,255,0.15),
-        0 20px 60px rgba(0,0,0,0.5),
-        0 0 80px rgba(13, 148, 136, 0.2);
+        0 25px 80px rgba(0,0,0,0.6),
+        0 0 100px rgba(13, 148, 136, 0.25);
     animation: qr-glow 3s ease-in-out infinite alternate;
 }
 
 @keyframes qr-glow {
-    from { box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(13,148,136,0.15); }
-    to   { box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(13,148,136,0.30); }
+    from { box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 25px 80px rgba(0,0,0,0.6), 0 0 50px rgba(13,148,136,0.15); }
+    to   { box-shadow: 0 0 0 1px rgba(255,255,255,0.2), 0 25px 80px rgba(0,0,0,0.6), 0 0 100px rgba(13,148,136,0.35); }
 }
 
 .qr-image {
@@ -148,8 +205,8 @@
     width: 100%;
     height: 100%;
     text-align: center;
-    font-size: 15px;
-    color: #888;
+    font-size: 16px;
+    color: #666;
     line-height: 1.5;
 }
 
@@ -162,38 +219,53 @@
 }
 
 .pin-label {
-    font-size: clamp(11px, 1.2vw, 14px);
+    font-size: 14px;
     font-weight: 500;
-    letter-spacing: 3px;
+    letter-spacing: 4px;
     text-transform: uppercase;
     color: var(--display-muted);
 }
 
 .pin-code {
     font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(32px, 6vw, 72px);
+    font-size: clamp(40px, 8vh, 84px);
     font-weight: 600;
-    letter-spacing: 12px;
+    letter-spacing: 14px;
     color: var(--display-text);
-    text-shadow: 0 0 40px rgba(94, 234, 212, 0.4);
+    text-shadow: 0 0 40px rgba(94, 234, 212, 0.5);
 }
 
 /* ── Guest Roster ─────────────────────────────────────────── */
 .guest-roster {
-    min-height: 60px;
+    flex: 1;
+    overflow-y: auto;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    align-items: center;
-    max-width: 900px;
-    padding: 8px 0;
+    gap: 12px;
+    align-content: flex-start;
+    padding-right: 10px;
+}
+
+/* Custom scrollbar for roster */
+.guest-roster::-webkit-scrollbar {
+    width: 6px;
+}
+.guest-roster::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+.guest-roster::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
 }
 
 .roster-waiting {
-    font-size: 15px;
+    font-size: 18px;
     color: var(--display-muted);
     font-style: italic;
+    width: 100%;
+    text-align: center;
+    margin-top: 40px;
     animation: pulse-opacity 2.5s ease-in-out infinite;
 }
 
@@ -202,21 +274,16 @@
     50%       { opacity: 1;   }
 }
 
-/* Guest name chip — injected via WebSocket in Week 4 */
-.guest-chip {
-    background: var(--display-card-bg);
-    border: 1px solid var(--display-card-border);
+/* Guest name chip */
+.guest-name-badge {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 99px;
-    padding: 6px 18px;
-    font-size: clamp(13px, 1.4vw, 16px);
+    padding: 10px 20px;
+    font-size: 18px;
     font-weight: 500;
     color: var(--display-text);
-    animation: chip-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes chip-in {
-    from { opacity: 0; transform: translateY(12px) scale(0.9); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);   }
+    transition: all 0.3s ease;
 }
 
 /* ── Fullscreen Prompt ────────────────────────────────────── */
@@ -234,14 +301,34 @@
     font-family: 'Inter', sans-serif;
     font-size: 14px;
     font-weight: 500;
-    padding: 10px 20px;
-    border-radius: 8px;
+    padding: 12px 24px;
+    border-radius: 12px;
     cursor: pointer;
-    backdrop-filter: blur(8px);
-    transition: background 0.2s ease, border-color 0.2s ease;
+    backdrop-filter: blur(12px);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .btn-fullscreen:hover {
-    background: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
 }
+
+/* ── Fullscreen Resizing Fixes ───────────────────────────── */
+:fullscreen .lobby-container {
+    padding: 8vh 5vw;
+}
+
+@media (max-height: 700px) {
+    .lobby-container {
+        padding-top: 80px;
+    }
+    .qr-wrapper {
+        width: 200px;
+        height: 200px;
+    }
+}
+

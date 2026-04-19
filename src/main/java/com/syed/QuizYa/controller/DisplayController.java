@@ -1,11 +1,15 @@
 package com.syed.QuizYa.controller;
 
 import com.syed.QuizYa.model.Event;
+import com.syed.QuizYa.model.EventGuest;
 import com.syed.QuizYa.service.EventService;
+import com.syed.QuizYa.service.GuestService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+
+import java.util.List;
 
 /**
  * CONTROLLER: DisplayController
@@ -20,9 +24,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 public class DisplayController {
 
     private final EventService eventService;
+    private final GuestService guestService;
 
-    public DisplayController(EventService eventService) {
+    public DisplayController(EventService eventService, GuestService guestService) {
         this.eventService = eventService;
+        this.guestService = guestService;
     }
 
     /**
@@ -39,9 +45,13 @@ public class DisplayController {
         Event event = eventService.getEventByJoinCode(joinCode)
                 .orElseThrow(() -> new IllegalArgumentException("No event found for join code: " + joinCode));
 
+        List<EventGuest> guests = guestService.getGuestsForEvent(event.getId());
+
         //  Put the data into a "Model" backpack, without this lobby.html will not understand event.
         model.addAttribute("event", event);
         model.addAttribute("joinCode", joinCode);
+        model.addAttribute("guests", guests);
+        model.addAttribute("guestCount", guests.size());
 
         //  Hand the backpack to the lobby.html template
         return "display/lobby";

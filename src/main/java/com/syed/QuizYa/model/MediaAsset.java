@@ -2,6 +2,7 @@ package com.syed.QuizYa.model;
 
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 /**
  * ENTITY: MediaAsset
@@ -49,7 +50,7 @@ public class MediaAsset {
 
     @PrePersist
     protected void onCreate() {
-        uploadedAt = OffsetDateTime.now();
+        uploadedAt = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
 
     // Getters and Setters

@@ -1,4 +1,17 @@
 const API_BASE = `/api/host/events/${window.EVENT_ID}`;
+
+// ─── Ngrok Warning Bypass ───────────────────────────────────────────────────
+// Automatically appends the ngrok bypass header to all API requests made by this script.
+// Without this, if the browser hasn't clicked "Visit Site" yet, API calls would fail.
+const originalFetch = window.fetch;
+window.fetch = async function() {
+    let [resource, config] = arguments;
+    config = config || {};
+    config.headers = config.headers || {};
+    config.headers['ngrok-skip-browser-warning'] = 'true';
+    return originalFetch(resource, config);
+};
+
 let defaultBankId = null;
 let currentQuestions = [];
 let activeQuestionId = null;
@@ -400,6 +413,34 @@ async function importBank(sourceBankId) {
 }
 
 // ─── Go Live / Lobby Launch ───────────────────────────────────────────────────
+/**
+ * Attempts to open the given URL on a secondary display using the Window Management API.
+ * Falls back to a standard popup window if no secondary screen exists or permission is denied.
+ */
+async function launchProjectorView(url) {
+    try {
+        // Check if the modern Window Management API is supported
+        if ('getScreenDetails' in window) {
+            const screenDetails = await window.getScreenDetails();
+            
+            // Search for a connected secondary display (e.g., a projector or external monitor)
+            const projectorScreen = screenDetails.screens.find(s => s.isExtended);
+            
+            if (projectorScreen) {
+                // Calculate position to spawn perfectly on the second screen
+                const features = `left=${projectorScreen.availLeft},top=${projectorScreen.availTop},width=${projectorScreen.availWidth},height=${projectorScreen.availHeight},fullscreen=yes`;
+                console.log("Spawning on secondary display:", projectorScreen.label);
+                return window.open(url, 'AudienceView', features);
+            }
+        }
+    } catch (err) {
+        console.warn("Window Management API permission denied or failed. Falling back.", err);
+    }
+    
+    // Fallback: Just open a large popup window for the host to drag over manually
+    return window.open(url, 'AudienceView', 'width=1280,height=720,fullscreen=yes');
+}
+
 async function goLive() {
     btnConfirmStart.disabled = true;
     btnConfirmStart.textContent = 'Going live...';
@@ -412,13 +453,23 @@ async function goLive() {
             // Close the confirmation modal
             confirmStartModal.classList.remove('active');
             
-            // Automatically open the display page in a new tab
-            window.open(data.displayUrl, '_blank');
+            // [NEW] Use the Window Management API to launch the Audience display
+            const audienceWindow = await launchProjectorView(data.displayUrl);
+
+            // Optional: Track if the projector gets accidentally closed
+            if (audienceWindow) {
+                const checkClosed = setInterval(() => {
+                    if (audienceWindow.closed) {
+                        alert("Warning: The Projector Window was closed!");
+                        clearInterval(checkClosed);
+                    }
+                }, 2000);
+            }
+
+            // Route the Host directly to their Presenter Control Panel,
+            // bypassing the manual Lobby Overlay completely.
+            window.location.href = data.hostLiveUrl;
             
-            // Week 5: The backend now returns hostLiveUrl alongside the
-            // existing joinCode/qrCodeUrl/displayUrl, so we pass it through
-            // to showLobbyOverlay() to populate the "Live Controls" link.
-            showLobbyOverlay(data.joinCode, data.qrCodeUrl, data.displayUrl, data.hostLiveUrl);
         } else {
             const err = await res.json();
             alert(err.error || 'Could not go live. Please try again.');
@@ -430,18 +481,6 @@ async function goLive() {
         btnConfirmStart.disabled = false;
         btnConfirmStart.textContent = 'Yes, Start';
     }
-}
-
-// Week 5: Updated to accept hostLiveUrl as a 4th parameter.
-// The lobby overlay now shows TWO action links:
-//   1. "Venue Display" → opens the projected display in a new tab
-//   2. "Live Controls" → navigates to /host/events/{id}/live
-function showLobbyOverlay(joinCode, qrCodeUrl, displayUrl, hostLiveUrl) {
-    lobbyPinCode.textContent = joinCode;
-    lobbyQrImg.src = qrCodeUrl;
-    lobbyDisplayLink.href = displayUrl;
-    hostLiveLink.href = hostLiveUrl;   // Week 5: populate the live controls link
-    lobbyOverlay.classList.remove('hidden');
 }
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────

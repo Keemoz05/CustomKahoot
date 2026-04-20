@@ -19,7 +19,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").withSockJS();
-        //registry.addEndpoint("/ws").withSockJS(); is where clients will connect (allowing fallback support if WebSockets are blocked).
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns("*") // Explicitly allow all origins (like ngrok urls)
+                .withSockJS();
     }
 }

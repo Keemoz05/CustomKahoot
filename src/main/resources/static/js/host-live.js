@@ -21,6 +21,16 @@
 
 const API_BASE = `/api/host/events/${window.EVENT_ID}`;
 
+// ─── Ngrok Warning Bypass ───────────────────────────────────────────────────
+const originalFetch = window.fetch;
+window.fetch = async function() {
+    let [resource, config] = arguments;
+    config = config || {};
+    config.headers = config.headers || {};
+    config.headers['ngrok-skip-browser-warning'] = 'true';
+    return originalFetch(resource, config);
+};
+
 // ─── DOM Elements ────────────────────────────────────────────────────────────
 const btnNext = document.getElementById('btnNext');
 const btnLock = document.getElementById('btnLock');

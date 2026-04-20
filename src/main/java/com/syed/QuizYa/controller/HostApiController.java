@@ -9,6 +9,7 @@ import com.syed.QuizYa.service.EventService;
 import com.syed.QuizYa.service.GuestService;
 import com.syed.QuizYa.service.MediaService;
 import com.syed.QuizYa.service.QuestionService;
+import com.syed.QuizYa.service.UrlDiscoveryService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,7 @@ public class HostApiController {
     // guest data (top performers, individual ranks) when building leaderboard
     // payloads to broadcast over WebSocket.
     private final GuestService guestService;
+    private final UrlDiscoveryService urlDiscoveryService;
 
     // Reads server.port from application.properties to build the base URL for the QR code
     @Value("${server.port:8080}")
@@ -45,12 +47,14 @@ public class HostApiController {
                              EventService eventService,
                              MediaService mediaService,
                              QuestionRepository questionRepository,
-                             GuestService guestService) {
+                             GuestService guestService,
+                             UrlDiscoveryService urlDiscoveryService) {
         this.questionService = questionService;
         this.eventService = eventService;
         this.mediaService = mediaService;
         this.questionRepository = questionRepository;
         this.guestService = guestService;
+        this.urlDiscoveryService = urlDiscoveryService;
     }
 
     // ─── Question Banks ──────────────────────────────────────────────────────
@@ -262,15 +266,8 @@ public class HostApiController {
     @PostMapping("/go-live")
     public ResponseEntity<?> goLive(@PathVariable Long eventId, HttpServletRequest request) {
         try {
-            // Build base URL using local IP instead of localhost so phones can scan QR and join
-            String serverName;
-            try {
-                serverName = java.net.InetAddress.getLocalHost().getHostAddress();
-            } catch (java.net.UnknownHostException e) {
-                serverName = request.getServerName(); // Fallback if IP cannot be resolved
-            }
-            String baseUrl = request.getScheme() + "://" + serverName
-                    + ":" + request.getServerPort();
+            // Automatically determine the base URL using Ngrok if available, or fallback to Local IP
+            String baseUrl = urlDiscoveryService.getBaseUrl(request.getServerPort());
 
             com.syed.QuizYa.model.Event event = eventService.goLive(eventId, baseUrl);
 

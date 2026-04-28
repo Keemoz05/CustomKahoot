@@ -4,130 +4,317 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Playing - QuizYa</title>
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <style>
+        :root {
+            --color-snow: #FAFAF9;
+            --color-warm-white: #F5F3EF;
+            --color-linen: #EDEBE5;
+            --color-pebble: #E0DDD6;
+            --color-charcoal: #1C1917;
+            --color-slate: #57534E;
+            --color-stone: #A8A29E;
+            --color-deep-teal: #0F766E;
+            --color-teal-dark: #0D6359;
+            --color-seafoam: #CCFBF1;
+            --color-rosewood: #B91C1C;
+            --color-blush: #FEF2F2;
+            --color-amber: #D97706;
+            --color-forest: #15803D;
+
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-12: 48px;
+
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
+            
+            --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+        }
+
         body {
-            background-color: var(--color-warm-white);
+            background-color: var(--color-snow);
             margin: 0;
             padding: 0;
             font-family: 'Inter', sans-serif;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            color: var(--color-charcoal);
         }
+
         .header {
-            padding: var(--space-4);
-            background-color: white;
-            box-shadow: var(--shadow-sm);
+            padding: var(--space-6);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
         }
-        .guest-name {
+
+        .logo {
+            font-family: 'Fraunces', serif;
             font-weight: 600;
+            font-size: 24px;
             color: var(--color-charcoal);
+            letter-spacing: -0.5px;
         }
-        .correct-display {
-            font-weight: 600;
+
+        .logo span {
             color: var(--color-deep-teal);
         }
+
+        .guest-badge {
+            background-color: white;
+            border: 1px solid var(--color-pebble);
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-full);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-slate);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            box-shadow: var(--shadow-xs);
+        }
+
         .content-area {
             flex: 1;
+            padding: var(--space-4) var(--space-6);
             display: flex;
             flex-direction: column;
             justify-content: center;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-8);
+            border: 1px solid var(--color-pebble);
+        }
+
+        .view-state { display: none; }
+        .view-state.active { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .centered-state {
+            text-align: center;
+            padding: var(--space-12) var(--space-4);
+        }
+
+        .centered-icon {
+            font-size: 48px;
+            margin-bottom: var(--space-6);
+        }
+
+        .centered-title {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--color-charcoal);
+            margin-bottom: var(--space-2);
+        }
+
+        .centered-sub {
+            color: var(--color-slate);
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .question-header {
+            margin-bottom: var(--space-8);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .question-prompt {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--color-charcoal);
+            margin: 0;
+            line-height: 1.35;
+            flex: 1;
+            padding-right: var(--space-4);
+        }
+
+        .participant-stats {
+            display: flex;
             align-items: center;
-            padding: var(--space-4);
-            text-align: center;
+            gap: var(--space-2);
+            color: var(--color-slate);
+            font-size: 15px;
+            background: var(--color-snow);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-full);
+            font-weight: 500;
+        }
+
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+        }
+
+        .option-btn {
+            background: white;
+            border: 1px solid var(--color-pebble);
+            padding: var(--space-5);
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            font-weight: 500;
+            border-radius: var(--radius-lg);
+            color: var(--color-charcoal);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow-xs);
+            display: flex;
+            align-items: center;
+            min-height: 64px;
+        }
+
+        .option-btn::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            background-color: var(--color-pebble);
+            transition: background-color 0.2s ease;
+        }
+
+        .option-btn:hover {
+            border-color: var(--color-stone);
+            background-color: var(--color-snow);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .option-btn:active {
+            transform: translateY(0);
+        }
+
+        .option-btn.locked {
+            opacity: 0.7;
+            pointer-events: none;
+            background-color: var(--color-warm-white);
+            transform: none;
+            box-shadow: none;
+        }
+
+        .rank-number {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 64px;
+            font-weight: 700;
+            color: var(--color-deep-teal);
+            margin: var(--space-6) 0;
         }
         
-        /* View States */
-        .view-state { display: none; width: 100%; max-width: 600px; }
-        .view-state.active { display: block; }
-        
-        /* Waiting State */
-        .waiting-text { font-family: 'Fraunces', serif; font-size: var(--text-2xl); color: var(--color-slate); }
-        .waiting-sub { color: var(--color-pebble); margin-top: var(--space-4); }
-        
-        /* Question State */
-        .question-prompt { font-family: 'Plus Jakarta Sans', sans-serif; font-size: var(--text-xl); margin-bottom: var(--space-8); }
-        .options-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
-        .option-btn { 
-            padding: var(--space-6); 
-            font-size: var(--text-lg); 
-            font-weight: 600; 
-            border: 2px solid transparent; 
-            border-radius: var(--radius-lg); 
-            color: white; 
-            cursor: pointer; 
-            transition: transform 0.1s, opacity 0.2s; 
+        .footer {
+            padding: var(--space-6);
             text-align: center;
-            word-wrap: break-word;
+            font-size: 12px;
+            color: var(--color-stone);
+            margin-top: auto;
+            margin-bottom: var(--space-4);
         }
-        .option-btn:active { transform: scale(0.98); }
-        .option-btn.locked { opacity: 0.6; pointer-events: none; border-color: var(--color-charcoal); }
-        
-        /* Feedback State */
-        .feedback-state { margin-top: var(--space-8); }
-        .feedback-icon { font-size: 48px; margin-bottom: var(--space-4); }
-        .feedback-text { font-size: var(--text-xl); font-weight: 600; }
-        
-        /* Rank State */
-        .rank-card { background: white; padding: var(--space-8); border-radius: var(--radius-xl); box-shadow: var(--shadow-md); }
-        .rank-number { font-size: 64px; font-weight: 700; color: var(--color-deep-teal); margin: var(--space-4) 0; }
-        .rank-label { font-size: var(--text-lg); color: var(--color-slate); }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="guest-name" th:text="${guest.displayName}">Guest Name</div>
-        <div class="correct-display">Correct: <span id="correctCount" th:text="${guest.correctCount}">0</span></div>
+        <div class="logo">Q<span>uizYa</span></div>
+        <div class="guest-badge">
+            <span th:text="${guest.displayName}">Anonymous</span>
+        </div>
     </div>
     
     <div class="content-area">
         <!-- State: Waiting -->
         <div id="state-waiting" class="view-state active">
-            <h2 class="waiting-text">You're in!</h2>
-            <p class="waiting-sub">Look at the big screen.<br>Waiting for the host to start...</p>
+            <div class="card centered-state">
+                <div class="centered-icon">✨</div>
+                <div class="centered-title">Welcome in</div>
+                <div class="centered-sub">Look at the big screen.<br>Waiting for the host to start...</div>
+            </div>
         </div>
         
         <!-- State: Question -->
         <div id="state-question" class="view-state">
-            <div id="questionPrompt" class="question-prompt"></div>
-            <div id="optionsContainer" class="options-grid"></div>
+            <div class="card">
+                <div class="question-header">
+                    <h2 id="questionPrompt" class="question-prompt">Question</h2>
+                    <div class="participant-stats">
+                        <span id="correctCount" th:text="${guest.correctCount}">0</span>
+                        <span>⭐</span>
+                    </div>
+                </div>
+                
+                <div id="optionsContainer" class="options-grid"></div>
+            </div>
         </div>
         
         <!-- State: Locked / Feedback -->
         <div id="state-feedback" class="view-state">
-            <div class="feedback-state">
-                <div id="feedbackIcon" class="feedback-icon">⏳</div>
-                <div id="feedbackText" class="feedback-text">Waiting for others...</div>
+            <div class="card centered-state">
+                <div id="feedbackIcon" class="centered-icon">⏳</div>
+                <div id="feedbackText" class="centered-title">Waiting for others...</div>
             </div>
         </div>
         
         <!-- State: Rank -->
         <div id="state-rank" class="view-state">
-            <div class="rank-card">
-                <div class="rank-label">Current Rank</div>
+            <div class="card centered-state">
+                <div class="centered-sub">Current Rank</div>
                 <div id="rankNumber" class="rank-number">--</div>
-                <div class="rank-label">Keep it up!</div>
+                <div class="centered-title">Keep it up!</div>
             </div>
         </div>
         
         <!-- State: Finished -->
         <div id="state-finished" class="view-state">
-            <h2 class="waiting-text" style="color: var(--color-deep-teal);">Event Ended</h2>
-            <p class="waiting-sub" style="font-size: 1.25rem;">Thanks for playing!</p>
-            <div class="rank-card" style="margin-top: 2rem; background: var(--color-warm-white); box-shadow: none; border: 2px solid var(--color-pebble);">
-                <div class="rank-label">Final Rank</div>
-                <div id="finalRankNumber" class="rank-number" style="color: var(--color-charcoal);">--</div>
+            <div class="card centered-state">
+                <div class="centered-icon">🎉</div>
+                <div class="centered-title">Event Ended</div>
+                <div class="centered-sub">Thanks for playing!</div>
+                
+                <div style="margin-top: var(--space-8); padding-top: var(--space-6); border-top: 1px solid var(--color-pebble);">
+                    <div class="centered-sub">Final Rank</div>
+                    <div id="finalRankNumber" class="rank-number" style="margin: var(--space-2) 0; font-size: 48px;">--</div>
+                </div>
             </div>
         </div>
+    </div>
+    
+    <div class="footer">
+        Powered by QuizYa
     </div>
     
     <script th:inline="javascript">
@@ -141,23 +328,15 @@
         function connect() {
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; // Disable debug logging
+            stompClient.debug = null; 
             
             stompClient.connect({}, function (frame) {
                 console.log('Connected to WebSocket');
                 
-                // PUBLIC channel: receives game-state events broadcast by
-                // HostApiController's live-control endpoints (Week 5).
-                // Events: SHOW_QUESTION, LOCK_ANSWERS, REVEAL_ANSWER,
-                //         SHOW_LEADERBOARD, PAUSE, RESUME
                 stompClient.subscribe('/topic/event/' + eventId + '/guest', function (message) {
                     handleEventMessage(JSON.parse(message.body));
                 });
                 
-                // PRIVATE channel: receives messages sent only to this specific
-                // guest via EventService.broadcastToGuest(guestId, payload).
-                // Currently only used for RANK_UPDATE, which tells the guest
-                // their personal rank after the host triggers the leaderboard.
                 stompClient.subscribe('/queue/guest/' + guestId, function (message) {
                     handleGuestMessage(JSON.parse(message.body));
                 });
@@ -170,8 +349,6 @@
         }
         
         function handleEventMessage(msg) {
-            // SHOW_QUESTION: Host pressed "Next Slide" — display the question
-            // prompt and render answer buttons with the option colours.
             if (msg.type === 'SHOW_QUESTION') {
                 document.getElementById('questionPrompt').innerText = msg.prompt || 'Choose an option';
                 const container = document.getElementById('optionsContainer');
@@ -180,33 +357,31 @@
                 msg.options.forEach(opt => {
                     const btn = document.createElement('button');
                     btn.className = 'option-btn';
-                    btn.style.backgroundColor = opt.color || '#333';
+                    // Optional: keep backend colors but as left border to mimic slido?
+                    // Let's use it as a left border indicator
+                    if(opt.color) {
+                        btn.style.setProperty('--pseudo-border-color', opt.color);
+                        // Apply color to the left border using border-left directly or an inline style override
+                        // For the option-btn::before, we'll need to set the background color via a CSS variable
+                        btn.style.borderLeftColor = opt.color;
+                        btn.style.boxShadow = `inset 6px 0 0 ${opt.color}, 0 1px 2px rgba(0,0,0,0.04)`;
+                    }
                     btn.innerText = opt.text;
                     btn.onclick = () => submitAnswer(opt.id, btn);
                     container.appendChild(btn);
                 });
                 switchState('state-question');
 
-            // SHOW_LEADERBOARD: Host pressed "Leaderboard" — switch to the
-            // rank card view.  The actual rank number gets filled in by a
-            // separate RANK_UPDATE message on the private channel.
             } else if (msg.type === 'SHOW_LEADERBOARD') {
                 switchState('state-rank');
 
-            // PAUSE: Host activated Storyteller Pause — show a calming
-            // "Paused / Eyes to the front!" screen so guests look up.
             } else if (msg.type === 'PAUSE') {
                 switchState('state-waiting');
-                document.querySelector('#state-waiting .waiting-text').innerText = 'Paused';
-                document.querySelector('#state-waiting .waiting-sub').innerText = 'Eyes to the front!';
+                document.querySelector('#state-waiting .centered-title').innerText = 'Paused';
+                document.querySelector('#state-waiting .centered-sub').innerText = 'Eyes to the front!';
+            } else if (msg.type === 'EVENT_FINISHED') {
+                switchState('state-finished');
 
-            // REVEAL_ANSWER: Week 5 deferred-reveal pattern.
-            // When the guest submitted their answer, the HTTP response
-            // included { correct: true/false } which was stashed in
-            // window.lastAnswerCorrect.  We don't show correct/incorrect
-            // feedback immediately — we wait until the host presses
-            // "Reveal Answer" so all guests learn the answer at the same
-            // time.  This prevents early-submitters from spoiling the answer.
             } else if (msg.type === 'REVEAL_ANSWER') {
                 if (window.lastAnswerCorrect !== undefined) {
                     const isCorrect = window.lastAnswerCorrect;
@@ -216,7 +391,6 @@
                         const el = document.getElementById('correctCount');
                         el.innerText = parseInt(el.innerText) + 1;
                     }
-                    // Clear the stashed value so it doesn't re-trigger
                     window.lastAnswerCorrect = undefined;
                 }
             } else if (msg.type === 'EVENT_FINISHED') {
@@ -226,30 +400,24 @@
             }
         }
         
-        // Week 5: Handles private messages sent to /queue/guest/{guestId}.
-        // Only RANK_UPDATE is sent here currently.  It arrives when the host
-        // clicks "Leaderboard", and contains this guest's rank and correctCount.
         function handleGuestMessage(msg) {
             if (msg.type === 'RANK_UPDATE') {
                 document.getElementById('rankNumber').innerText = msg.rank;
                 document.getElementById('correctCount').innerText = msg.correctCount || msg.score || 0;
+            } else if (msg.type === 'KICKED') {
+                switchState('state-finished');
+                document.querySelector('#state-finished .centered-title').innerText = 'Removed';
+                document.querySelector('#state-finished .centered-sub').innerText = 'You have been removed from this event.';
             }
         }
         
         function submitAnswer(optionId, btnElement) {
-            // Lock UI
             document.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('locked'));
             
-            // Show calm waiting state
             switchState('state-feedback');
             document.getElementById('feedbackIcon').innerText = '⏳';
             document.getElementById('feedbackText').innerText = 'Waiting for others...';
             
-            // Send the selected option to the backend.  The response
-            // includes { correct: true/false } which we stash in
-            // window.lastAnswerCorrect.  We do NOT show the result yet —
-            // it's deferred until the host presses "Reveal Answer" and
-            // a REVEAL_ANSWER event arrives on the WebSocket (see above).
             fetch('/api/guest/' + guestId + '/answer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -261,7 +429,6 @@
               .catch(err => console.error(err));
         }
         
-        // Init
         connect();
     </script>
 </body>

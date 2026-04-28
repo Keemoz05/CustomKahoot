@@ -193,6 +193,40 @@ public class HostApiController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 
+    // ─── Audience Management (Phase 5) ───────────────────────────────────────
+
+    @GetMapping("/guests")
+    public ResponseEntity<?> getGuests(@PathVariable Long eventId) {
+        List<com.syed.QuizYa.model.EventGuest> guests = guestService.getGuestsForEvent(eventId);
+        List<Map<String, Object>> list = guests.stream().map(g -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", g.getId());
+            m.put("displayName", g.getDisplayName());
+            m.put("correctCount", g.getCorrectCount());
+            m.put("joinedAt", g.getJoinedAt().toString());
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(Map.of("guests", list));
+    }
+
+    @PostMapping("/kick/{guestId}")
+    public ResponseEntity<?> kickGuest(@PathVariable Long eventId, @PathVariable Long guestId) {
+        guestService.kickGuest(guestId);
+        
+        // Notify the kicked guest
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "KICKED");
+        eventService.broadcastToGuest(guestId, payload);
+        
+        // Notify display to remove from roster
+        Map<String, Object> displayPayload = new HashMap<>();
+        displayPayload.put("type", "GUEST_KICKED");
+        displayPayload.put("guestId", guestId);
+        eventService.broadcastToDisplay(eventId, displayPayload);
+        
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
     // ─── Media Upload (Week 3) ───────────────────────────────────────────────
 
     /**
@@ -360,10 +394,65 @@ public class HostApiController {
             return optMap;
         }).collect(Collectors.toList()));
 
-        // Broadcast to both channels so guests see the question on their
+    // Broadcast to both channels so guests see the question on their
         // phones AND the venue projector shows it on the big screen.
         eventService.broadcastToGuests(eventId, payload);
         eventService.broadcastToDisplay(eventId, payload);
+        return ResponseEntity.ok(Map.of("success", true, "state", "QUESTION"));
+    }
+
+    @PostMapping("/skip")
+    public ResponseEntity<?> skipQuestion(@PathVariable Long eventId) {
+        com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
+        
+        // Skip = increment index + broadcast skipped, then call next
+        event.setCurrentQuestionIndex(event.getCurrentQuestionIndex() + 1);
+        
+        Map<String, Object> skipPayload = new HashMap<>();
+        skipPayload.put("type", "QUESTION_SKIPPED");
+        eventService.broadcastToGuests(eventId, skipPayload);
+        eventService.broadcastToDisplay(eventId, skipPayload);
+        
+        // Then immediately show next question
+        return nextQuestion(eventId);
+    }
+
+    /**
+     * POST /next-to
+     * Jumps to a specific question without incrementing. Used by the Safe Tap feature.
+     */
+    @PostMapping("/next-to")
+    public ResponseEntity<?> jumpToQuestion(@PathVariable Long eventId, @RequestBody Map<String, Integer> body) {
+        int targetIndex = body.getOrDefault("questionIndex", 1);
+        com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
+        
+        event.setCurrentQuestionIndex(targetIndex);
+        
+        List<QuestionBank> banks = questionService.getEventBanks(eventId);
+        QuestionBank defaultBank = banks.get(0);
+        List<Question> questions = questionService.getQuestionsForBank(defaultBank.getId());
+        
+        if (targetIndex > questions.size() || targetIndex <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid question index"));
+        }
+        
+        Question currentQuestion = questions.get(targetIndex - 1);
+        List<QuestionOption> options = questionService.getOptionsForQuestion(currentQuestion.getId());
+        
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "SHOW_QUESTION");
+        payload.put("prompt", currentQuestion.getPromptText());
+        payload.put("options", options.stream().map(o -> {
+            Map<String, Object> optMap = new HashMap<>();
+            optMap.put("id", o.getId());
+            optMap.put("text", o.getOptionText());
+            optMap.put("color", o.getColorHex() != null ? o.getColorHex() : "#ccc");
+            return optMap;
+        }).collect(Collectors.toList()));
+        
+        eventService.broadcastToGuests(eventId, payload);
+        eventService.broadcastToDisplay(eventId, payload);
+        
         return ResponseEntity.ok(Map.of("success", true, "state", "QUESTION"));
     }
 

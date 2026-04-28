@@ -6,5 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface GuestAnswerRepository extends JpaRepository<GuestAnswer, Long> {
+    List<GuestAnswer> findByGuestId(Long guestId);
     List<GuestAnswer> findByEventId(Long eventId);
 }

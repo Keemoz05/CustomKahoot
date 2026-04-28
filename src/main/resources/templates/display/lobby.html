@@ -83,25 +83,60 @@
         handleEventMessage() in the script below, which toggles CSS
         display:none/flex on the two container divs.
     -->
-    <div id="liveGameScreen" class="lobby-container" style="display: none; text-align: center; justify-content: center; align-items: center; flex-direction: column;">
-        <h1 id="livePrompt" style="font-size: 3rem; margin-bottom: 2rem;">Question</h1>
-        <div id="liveOptions" style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 800px;">
-            <!-- Options will go here -->
+    <!-- Live Game Screen (Slido Style) -->
+    <div id="liveGameScreen" style="display: none; background-color: #f3f4f6; position: absolute; inset: 0; flex-direction: column; font-family: 'Inter', sans-serif; z-index: 50;">
+        
+        <!-- Projector Header -->
+        <div style="background-color: #1b5d96; color: white; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 24px;">
+            <div style="font-weight: 600; letter-spacing: 1px; display: flex; align-items: center; gap: 12px;">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+                quizya
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 20px; align-items: center; font-weight: 500;">
+                <span id="liveGuestCount">0</span>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            </div>
         </div>
-        <div id="liveLeaderboard" style="display: none; width: 100%; max-width: 600px;">
-            <h2 style="font-size: 2.5rem; margin-bottom: 2rem;">Top Players</h2>
-            <ul id="leaderboardList" style="list-style: none; padding: 0; font-size: 1.5rem; text-align: left; background: white; border-radius: 1rem; padding: 2rem; color: black;">
-            </ul>
+
+        <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; overflow-y: auto;">
+            <div style="background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 40px 50px; width: 100%; max-width: 1000px;">
+                <h1 id="livePrompt" style="font-size: 2.5rem; margin-top: 0; margin-bottom: 2.5rem; color: #1f2937; font-weight: 600;">Question</h1>
+                
+                <div id="liveOptions" style="display: grid; grid-template-columns: 1fr; gap: 1.25rem;">
+                    <!-- Options will go here -->
+                </div>
+                
+                <div id="liveLeaderboard" style="display: none; width: 100%;">
+                    <h2 style="font-size: 2rem; margin-top: 0; margin-bottom: 2rem; color: #4b5563;">Top Players</h2>
+                    <ul id="leaderboardList" style="list-style: none; padding: 0; margin: 0; font-size: 1.5rem; text-align: left; color: #374151;">
+                    </ul>
+                </div>
+            </div>
         </div>
-        <div id="pauseOverlay" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; color: white;">
-            <h1 style="font-size: 4rem;">Eyes to the front!</h1>
+
+        <div id="pauseOverlay" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; color: white;">
+            <div style="text-align: center;">
+                <h1 style="font-size: 4rem; margin-bottom: 1rem;">Paused</h1>
+                <p style="font-size: 2rem; color: #9ca3af;">Eyes to the front!</p>
+            </div>
         </div>
     </div>
 
     <!-- Finished Screen -->
-    <div id="finishedScreen" class="lobby-container" style="display: none; text-align: center; justify-content: center; align-items: center; flex-direction: column;">
-        <h1 style="font-size: 5rem; color: var(--color-deep-teal); margin-bottom: 1rem;">Thanks for playing!</h1>
-        <p style="font-size: 2rem; color: var(--color-slate);">This event has concluded.</p>
+    <div id="finishedScreen" style="display: none; background-color: #f3f4f6; position: absolute; inset: 0; flex-direction: column; align-items: center; justify-content: center; z-index: 50; font-family: 'Inter', sans-serif;">
+        <div style="background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 60px; text-align: center;">
+            <h1 style="font-size: 4rem; color: #1b5d96; margin-top: 0; margin-bottom: 1rem;">Event Ended</h1>
+            <p style="font-size: 1.5rem; color: #6b7280; margin: 0;">Thanks for playing!</p>
+        </div>
     </div>
 
     <!-- Fullscreen prompt -->
@@ -178,12 +213,16 @@
                 if (msg.options) {
                     msg.options.forEach(opt => {
                         const d = document.createElement('div');
-                        d.style.padding = '2rem';
-                        d.style.background = opt.color || '#333';
-                        d.style.color = 'white';
+                        d.style.padding = '1.5rem 2rem';
+                        d.style.background = 'white';
+                        d.style.color = '#374151';
+                        d.style.border = '2px solid #e5e7eb';
+                        if (opt.color) {
+                            d.style.borderLeft = '8px solid ' + opt.color;
+                        }
                         d.style.fontSize = '1.5rem';
-                        d.style.borderRadius = '1rem';
-                        d.style.flex = '1 1 45%';
+                        d.style.fontWeight = '500';
+                        d.style.borderRadius = '12px';
                         d.innerText = opt.text;
                         d.id = 'opt-' + opt.id;
                         optsContainer.appendChild(d);
@@ -206,9 +245,20 @@
                 if (msg.topGuests) {
                     msg.topGuests.forEach((g, i) => {
                         const li = document.createElement('li');
-                        li.style.padding = '1rem 0';
-                        li.style.borderBottom = '1px solid #ccc';
-                        li.innerText = `${i+1}. ${g.name} - ${g.score} points`;
+                        li.style.padding = '1.5rem 0';
+                        li.style.borderBottom = '1px solid #e5e7eb';
+                        li.style.display = 'flex';
+                        li.style.justifyContent = 'space-between';
+                        
+                        const rankSpan = document.createElement('span');
+                        rankSpan.innerHTML = `<strong style="color: #1b5d96;">${i+1}.</strong> ${g.name}`;
+                        
+                        const scoreSpan = document.createElement('span');
+                        scoreSpan.style.fontWeight = '600';
+                        scoreSpan.innerText = `${g.score} pts`;
+                        
+                        li.appendChild(rankSpan);
+                        li.appendChild(scoreSpan);
                         list.appendChild(li);
                     });
                 } else {
@@ -246,6 +296,13 @@
                     const payload = JSON.parse(message.body);
                     if (payload.type === 'GUEST_JOINED') {
                         handleGuestJoined(payload.guestName);
+                    } else if (payload.type === 'GUEST_KICKED') {
+                        if (guestCount > 0) {
+                            guestCount--;
+                            document.getElementById('guestCounter').innerText = guestCount + (guestCount === 1 ? ' joined' : ' joined');
+                            const liveCountEl = document.getElementById('liveGuestCount');
+                            if (liveCountEl) liveCountEl.innerText = guestCount;
+                        }
                     } else {
                         // Week 5: delegate all other message types to the
                         // game-state handler that switches between question,
@@ -260,6 +317,9 @@
             guestCount++;
             const counterEl = document.getElementById('guestCounter');
             counterEl.innerText = guestCount + ' joined';
+            
+            const liveCountEl = document.getElementById('liveGuestCount');
+            if (liveCountEl) liveCountEl.innerText = guestCount;
             
             const rosterEl = document.getElementById('guestRoster');
             
@@ -278,15 +338,6 @@
             rosterEl.scrollTop = rosterEl.scrollHeight;
         }
         
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeInUp {
-                from { opacity: 0; transform: translateY(15px) scale(0.9); }
-                to { opacity: 1; transform: translateY(0) scale(1); }
-            }
-        `;
-        document.head.appendChild(style);
-
         if (eventId) {
             connectLobby();
         }

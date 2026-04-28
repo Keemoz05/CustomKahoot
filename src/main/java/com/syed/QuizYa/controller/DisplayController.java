@@ -56,4 +56,11 @@ public class DisplayController {
         //  Hand the backpack to the lobby.html template
         return "display/lobby";
     }
+
+    @GetMapping("/display/{joinCode}/audience-preview")
+    public String showAudiencePreview(@PathVariable String joinCode, Model model) {
+        Event event = eventService.getEventByJoinCode(joinCode).orElseThrow();
+        model.addAttribute("event", event);
+        return "display/audience-preview";
+    }
 }

@@ -24,13 +24,19 @@ public class QuestionService {
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
     private final QuestionBankRepository questionBankRepository;
+    private final com.syed.QuizYa.repository.GuestAnswerRepository guestAnswerRepository;
+    private final com.syed.QuizYa.repository.EventRepository eventRepository;
 
     public QuestionService(QuestionRepository questionRepository, 
                            QuestionOptionRepository questionOptionRepository,
-                           QuestionBankRepository questionBankRepository) {
+                           QuestionBankRepository questionBankRepository,
+                           com.syed.QuizYa.repository.GuestAnswerRepository guestAnswerRepository,
+                           com.syed.QuizYa.repository.EventRepository eventRepository) {
         this.questionRepository = questionRepository;
         this.questionOptionRepository = questionOptionRepository;
         this.questionBankRepository = questionBankRepository;
+        this.guestAnswerRepository = guestAnswerRepository;
+        this.eventRepository = eventRepository;
     }
 
     public List<Question> getQuestionsForBank(Long bankId) {
@@ -217,5 +223,56 @@ public class QuestionService {
             questionRepository.deleteAll(questions);
         }
         questionBankRepository.deleteAll(banks);
+    }
+
+    public java.util.Map<String, Object> getVoteDistribution(Long eventId) {
+        com.syed.QuizYa.model.Event event = eventRepository.findById(eventId).orElseThrow();
+        int currentIdx = event.getCurrentQuestionIndex();
+        
+        if (currentIdx <= 0) return new java.util.HashMap<>();
+        
+        List<QuestionBank> banks = questionBankRepository.findByEventId(eventId);
+        if (banks.isEmpty()) return new java.util.HashMap<>();
+        
+        List<Question> questions = getQuestionsForBank(banks.get(0).getId());
+        if (currentIdx > questions.size()) return new java.util.HashMap<>();
+        
+        Question current = questions.get(currentIdx - 1);
+        List<QuestionOption> options = getOptionsForQuestion(current.getId());
+        
+        // Count answers
+        List<com.syed.QuizYa.model.GuestAnswer> eventAnswers = guestAnswerRepository.findByEventId(eventId);
+        java.util.Map<Long, Long> optionCounts = new java.util.HashMap<>();
+        long totalCount = 0;
+        
+        for (com.syed.QuizYa.model.GuestAnswer ans : eventAnswers) {
+            // Check if answer belongs to an option of this question
+            boolean matches = options.stream().anyMatch(o -> o.getId().equals(ans.getSelectedOption().getId()));
+            if (matches) {
+                Long optId = ans.getSelectedOption().getId();
+                optionCounts.put(optId, optionCounts.getOrDefault(optId, 0L) + 1);
+                totalCount++;
+            }
+        }
+        
+        final long total = totalCount;
+        List<java.util.Map<String, Object>> optionsList = new java.util.ArrayList<>();
+        for (QuestionOption opt : options) {
+            long count = optionCounts.getOrDefault(opt.getId(), 0L);
+            double percentage = total > 0 ? (double) count / total * 100.0 : 0.0;
+            
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", opt.getId());
+            map.put("text", opt.getOptionText());
+            map.put("color", opt.getColorHex() != null ? opt.getColorHex() : "#ccc");
+            map.put("count", count);
+            map.put("percentage", Math.round(percentage));
+            optionsList.add(map);
+        }
+        
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("options", optionsList);
+        result.put("totalVotes", total);
+        return result;
     }
 }

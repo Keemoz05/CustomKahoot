@@ -20,13 +20,16 @@ public class GuestApiController {
     // many guests have responded before they lock answers.
     private final com.syed.QuizYa.service.EventService eventService;
     private final com.syed.QuizYa.repository.EventGuestRepository eventGuestRepository;
+    private final com.syed.QuizYa.service.QuestionService questionService;
 
     public GuestApiController(GuestService guestService, 
                               com.syed.QuizYa.service.EventService eventService,
-                              com.syed.QuizYa.repository.EventGuestRepository eventGuestRepository) {
+                              com.syed.QuizYa.repository.EventGuestRepository eventGuestRepository,
+                              com.syed.QuizYa.service.QuestionService questionService) {
         this.guestService = guestService;
         this.eventService = eventService;
         this.eventGuestRepository = eventGuestRepository;
+        this.questionService = questionService;
     }
 
     @PostMapping("/{guestId}/answer")
@@ -42,13 +45,15 @@ public class GuestApiController {
         try {
             boolean isCorrect = guestService.submitAnswer(guestId, optionId);
             
-            // Week 5: After persisting the answer, broadcast an ANSWER_SUBMITTED
-            // event to the lobby/display channel.  This lets the host's live
-            // controls page update the "Answers Submitted" counter in real time.
-            // We look up the guest to find their event ID for the broadcast.
             com.syed.QuizYa.model.EventGuest guest = eventGuestRepository.findById(guestId).orElse(null);
             if (guest != null) {
-                eventService.broadcastToDisplay(guest.getEvent().getId(), java.util.Map.of("type", "ANSWER_SUBMITTED"));
+                Long eventId = guest.getEvent().getId();
+                eventService.broadcastToDisplay(eventId, java.util.Map.of("type", "ANSWER_SUBMITTED"));
+                
+                // Broadcast vote distribution
+                Map<String, Object> distPayload = questionService.getVoteDistribution(eventId);
+                distPayload.put("type", "VOTE_DISTRIBUTION");
+                eventService.broadcastToDisplay(eventId, distPayload);
             }
             
             return ResponseEntity.ok(Map.of("success", true, "correct", isCorrect));

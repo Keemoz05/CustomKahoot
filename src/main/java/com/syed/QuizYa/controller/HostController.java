@@ -53,6 +53,7 @@ public class HostController {
     public String showLiveControls(@PathVariable Long id, Model model) {
         Event event = eventService.getEventById(id).orElseThrow(() -> new IllegalArgumentException("Invalid event Id:" + id));
         model.addAttribute("event", event);
+        model.addAttribute("joinCode", event.getJoinCode());
         return "host/live";
     }
 }

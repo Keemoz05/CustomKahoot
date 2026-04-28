@@ -1,148 +1,540 @@
 /**
- * host-live.js — Week 5: Host Live Controls
+ * host-live.js — Host Live Controls
+ * Single-file, fully self-contained controller for the host live panel.
  *
- * This script powers the host's real-time game-pacing control panel at
- * /host/events/{id}/live.  It does two things:
- *
- * 1. SENDING:  Each control button (Next, Lock, Reveal, Leaderboard, Pause)
- *    fires a POST to the corresponding /api/host/events/{id}/{action} endpoint.
- *    The backend handles the business logic (loading questions, computing
- *    leaderboards) and broadcasts WebSocket events to guests and the venue
- *    display.  The host-live page itself does NOT receive those broadcasts
- *    for game state — it only uses the HTTP response to update its own UI
- *    labels (status badge + question preview text).
- *
- * 2. LISTENING:  The script subscribes to /topic/event/{id}/lobby via STOMP
- *    to receive real-time notifications about guest activity:
- *      - GUEST_JOINED:     increments the "Connected Guests" counter
- *      - ANSWER_SUBMITTED: increments the "Answers Submitted" counter
- *    These give the host live visibility into audience engagement.
+ * Responsibilities:
+ *   - WebSocket connection & real-time message handling
+ *   - Navigation sidebar rendering & safe-tap protocol
+ *   - All control button event bindings (Next, Skip, Lock, Reveal, Leaderboard, Feedback, Pause)
+ *   - Sidebar toggle (preview panel)
+ *   - Audience overview (load, search, kick, live updates)
+ *   - Soundboard audio playback
+ *   - End Event (finish) flow
  */
 
 const API_BASE = `/api/host/events/${window.EVENT_ID}`;
 
-// ─── Ngrok Warning Bypass ───────────────────────────────────────────────────
-const originalFetch = window.fetch;
-window.fetch = async function() {
-    let [resource, config] = arguments;
+// ─── Ngrok Warning Bypass ─────────────────────────────────────────────────────
+// Intercepts every fetch() to inject the header that bypasses Ngrok's browser
+// interstitial page when tunnelling.  No-op on non-Ngrok hosts.
+const _origFetch = window.fetch;
+window.fetch = async function (...args) {
+    let [resource, config] = args;
     config = config || {};
     config.headers = config.headers || {};
     config.headers['ngrok-skip-browser-warning'] = 'true';
-    return originalFetch(resource, config);
+    return _origFetch(resource, config);
 };
 
-// ─── DOM Elements ────────────────────────────────────────────────────────────
-const btnNext = document.getElementById('btnNext');
-const btnLock = document.getElementById('btnLock');
-const btnReveal = document.getElementById('btnReveal');
-const btnLeaderboard = document.getElementById('btnLeaderboard');
-const btnFinish = document.getElementById('btnFinish');
-const togglePause = document.getElementById('togglePause');
-const statusBadge = document.getElementById('statusBadge');
+// ─── DOM References ───────────────────────────────────────────────────────────
+const btnNext        = document.getElementById('btnNext');
+const btnSkip        = document.getElementById('btnSkip');
+const btnLock        = document.getElementById('btnLock');
+const btnFeedback    = document.getElementById('btnFeedback');
+const btnReveal      = document.getElementById('btnReveal');
+const btnEndEvent    = document.getElementById('btnEndEvent');   // sidebar only
+const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+const toggleSidebarText = document.getElementById('toggleSidebarText');
+const togglePause    = document.getElementById('togglePause');
+
+const statusBadge    = document.getElementById('statusBadge');
 const questionPreview = document.getElementById('questionPreview');
-const guestCount = document.getElementById('guestCount');
-const answerCount = document.getElementById('answerCount');
+const previewOptions = document.getElementById('previewOptions');
+const feedbackChart  = document.getElementById('feedbackChart');
+const btnPushLive    = document.getElementById('btnPushLive');
+const outOfSyncBadge = document.getElementById('outOfSyncBadge');
 
-let isPaused = false;
-let stompClient = null;
+const navList        = document.getElementById('navList');
+const progressFill   = document.getElementById('progressFill');
+const progressLabel  = document.getElementById('progressLabel');
+const selectedSlideNum = document.getElementById('selectedSlideNum');
+const totalSlides    = document.getElementById('totalSlides');
 
-// ─── WebSocket Connection ────────────────────────────────────────────────────
-// We subscribe to the LOBBY channel (same one the venue display uses) so we
-// can piggyback on the GUEST_JOINED and ANSWER_SUBMITTED events that are
-// already being broadcast there.  This avoids creating a separate WebSocket
-// topic just for the host controls.
-function connect() {
+// Hidden counters kept for internal counting (not displayed directly)
+const guestCount     = document.getElementById('guestCount');
+const answerCount    = document.getElementById('answerCount');
+const navGuestCount  = document.getElementById('navGuestCount');
+
+const guestList      = document.getElementById('guestList');
+const guestSearch    = document.getElementById('guestSearch');
+const guestCountBadge = document.getElementById('guestCountBadge');
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let stompClient     = null;
+let isPaused        = false;
+let allQuestions    = [];
+let allGuests       = [];
+let selectedIndex   = 0;  // Slide the host is PREVIEWING (0 = Welcome)
+let liveIndex       = 0;  // Slide currently LIVE on screens
+
+// ─── Startup ──────────────────────────────────────────────────────────────────
+async function init() {
+    connectWebSocket();
+    await Promise.all([loadQuestions(), loadGuests()]);
+    updateUI();
+}
+
+// ─── Questions & Nav Sidebar ──────────────────────────────────────────────────
+async function loadQuestions() {
+    try {
+        const bankRes = await fetch(`${API_BASE}/banks`);
+        if (!bankRes.ok) return;
+        const bankData = await bankRes.json();
+        if (!bankData.banks || bankData.banks.length === 0) return;
+
+        const bankId = bankData.banks[0].id;
+        const qRes = await fetch(`${API_BASE}/banks/${bankId}/questions`);
+        if (!qRes.ok) return;
+        const qData = await qRes.json();
+
+        allQuestions = qData.questions || [];
+        const total = allQuestions.length + 1; // +1 for Welcome slide
+        if (totalSlides) totalSlides.innerText = total;
+
+        renderNavList();
+    } catch (e) {
+        console.error('Failed to load questions:', e);
+    }
+}
+
+function renderNavList() {
+    navList.innerHTML = '';
+
+    // Welcome slide (index 0)
+    const welcomeLi = document.createElement('li');
+    welcomeLi.className = 'nav-item flat-item';
+    welcomeLi.dataset.index = '0';
+    welcomeLi.innerHTML = `<span class="nav-dot"></span> Welcome`;
+    welcomeLi.addEventListener('click', () => selectSlide(0));
+    navList.appendChild(welcomeLi);
+
+    if (allQuestions.length === 0) {
+        const emptyNote = document.createElement('li');
+        emptyNote.className = 'nav-item';
+        emptyNote.style.cssText = 'color:rgba(255,255,255,0.25);font-size:12px;padding:8px 16px;cursor:default;';
+        emptyNote.innerText = 'No questions loaded';
+        navList.appendChild(emptyNote);
+        return;
+    }
+
+    // Round header
+    const roundHeader = document.createElement('li');
+    roundHeader.className = 'nav-item round-header';
+    roundHeader.innerHTML = `<span class="nav-chevron">▾</span> Main Round`;
+    navList.appendChild(roundHeader);
+
+    // Question items
+    const roundUl = document.createElement('ul');
+    roundUl.className = 'round-questions expanded';
+
+    allQuestions.forEach((q, idx) => {
+        const slideIndex = idx + 1;
+        const li = document.createElement('li');
+        li.className = 'nav-item question-item';
+        li.dataset.index = String(slideIndex);
+
+        // Strip HTML from prompt text for safe sidebar display
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = q.prompt || '';
+        const plainText = (tempDiv.textContent || tempDiv.innerText || '').trim();
+        const shortText = plainText.length > 32
+            ? plainText.substring(0, 32) + '…'
+            : (plainText || 'Untitled question');
+
+        li.innerHTML = `<span class="nav-dot"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Q${slideIndex}: ${shortText}</span>`;
+        li.addEventListener('click', () => selectSlide(slideIndex));
+        roundUl.appendChild(li);
+    });
+
+    navList.appendChild(roundUl);
+    updateNavStatus();
+}
+
+function updateNavStatus() {
+    const total = allQuestions.length + 1;
+    const pct = total > 1 ? Math.min(100, (liveIndex / (total - 1)) * 100) : 0;
+    if (progressFill)  progressFill.style.width = `${pct}%`;
+    if (progressLabel) progressLabel.innerText   = `${liveIndex} / ${total - 1}`;
+
+    document.querySelectorAll('.nav-item[data-index]').forEach(item => {
+        const idx = parseInt(item.dataset.index, 10);
+        const dot = item.querySelector('.nav-dot');
+
+        item.classList.toggle('active', idx === selectedIndex);
+
+        if (dot) {
+            dot.className = 'nav-dot';
+            if (idx < liveIndex)        dot.classList.add('done');
+            else if (idx === liveIndex) dot.classList.add('active');
+            else                        dot.classList.add('upcoming');
+        }
+    });
+
+    // Auto-scroll active item into view
+    const activeItem = navList.querySelector(`.nav-item[data-index="${selectedIndex}"]`);
+    if (activeItem) activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ─── Safe-Tap Protocol ────────────────────────────────────────────────────────
+// Clicking a sidebar item selects it for preview. The slide is only PUSHED live
+// when the host explicitly clicks "Push to Live" (or uses "Next Slide").
+function selectSlide(index) {
+    selectedIndex = index;
+    updateUI();
+}
+
+function updateUI() {
+    if (selectedSlideNum) selectedSlideNum.innerText = selectedIndex;
+    updateNavStatus();
+
+    const isSynced = selectedIndex === liveIndex;
+    if (btnPushLive)   btnPushLive.style.display  = isSynced ? 'none' : 'block';
+    if (outOfSyncBadge) outOfSyncBadge.style.display = isSynced ? 'none' : 'inline-block';
+
+    // Render preview content
+    if (previewOptions) previewOptions.innerHTML = '';
+    if (selectedIndex === 0) {
+        if (questionPreview) questionPreview.innerHTML = 'Welcome / Lobby Screen';
+        return;
+    }
+
+    const q = allQuestions[selectedIndex - 1];
+    if (!q || !questionPreview) return;
+
+    questionPreview.innerHTML = q.prompt || 'Question';
+
+    (q.options || []).forEach(opt => {
+        const div = document.createElement('div');
+        div.style.cssText = `
+            padding: 10px 14px;
+            background: ${opt.color || '#ccc'};
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        `;
+        div.innerText = opt.text || '';
+        if (previewOptions) previewOptions.appendChild(div);
+    });
+}
+
+// ─── WebSocket ────────────────────────────────────────────────────────────────
+function connectWebSocket() {
     const socket = new SockJS('/ws');
     stompClient = Stomp.over(socket);
-    stompClient.debug = null; // Suppress STOMP debug logs in the console
+    stompClient.debug = null;
 
-    stompClient.connect({}, function (frame) {
-        stompClient.subscribe('/topic/event/' + window.EVENT_ID + '/lobby', function (message) {
-            const payload = JSON.parse(message.body);
-
-            // When a new guest joins, bump the "Connected Guests" counter.
-            if (payload.type === 'GUEST_JOINED') {
-                guestCount.innerText = parseInt(guestCount.innerText) + 1;
-            }
-            // When any guest submits an answer, bump the "Answers Submitted"
-            // counter.  This is broadcast by GuestApiController after
-            // persisting the answer.
-            else if (payload.type === 'ANSWER_SUBMITTED') {
-                answerCount.innerText = parseInt(answerCount.innerText) + 1;
-            }
+    stompClient.connect({}, () => {
+        // Subscribe to the shared lobby topic — receives GUEST_JOINED,
+        // ANSWER_SUBMITTED, VOTE_DISTRIBUTION and all game-state events.
+        stompClient.subscribe(`/topic/event/${window.EVENT_ID}/lobby`, msg => {
+            const payload = JSON.parse(msg.body);
+            handleLobbyMessage(payload);
         });
     });
 }
 
-// ─── API Action Dispatcher ───────────────────────────────────────────────────
-// All four control buttons and the pause toggle funnel through this function.
-// It POSTs to the backend and updates the status badge + preview text based
-// on the "state" field in the response.
-//
-// The backend response always includes { success: true, state: "..." } where
-// state is one of: QUESTION, LOCKED, REVEAL, LEADERBOARD.
-async function postAction(action, payload = null) {
-    const opts = { method: 'POST' };
-    if (payload) {
-        opts.headers = { 'Content-Type': 'application/json' };
-        opts.body = JSON.stringify(payload);
-    }
-    try {
-        const res = await fetch(`${API_BASE}/${action}`, opts);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.state) {
-                // Update the pill badge in the header to reflect current phase
-                statusBadge.innerText = data.state;
+function handleLobbyMessage(payload) {
+    switch (payload.type) {
+        case 'GUEST_JOINED': {
+            const count = (parseInt(guestCount?.innerText || '0', 10)) + 1;
+            if (guestCount)    guestCount.innerText    = count;
+            if (navGuestCount) navGuestCount.innerText = count;
 
-                // Update the large preview text in the control panel
-                if (data.state === 'QUESTION') {
-                    questionPreview.innerText = "Question Active";
-                    answerCount.innerText = "0"; // reset for the new question
-                } else if (data.state === 'LOCKED') {
-                    questionPreview.innerText = "Answers Locked";
-                } else if (data.state === 'REVEAL') {
-                    questionPreview.innerText = "Answer Revealed";
-                } else if (data.state === 'LEADERBOARD') {
-                    questionPreview.innerText = "Leaderboard Shown";
-                }
-            }
+            // Live-add to guest list without a full reload
+            allGuests.push({
+                id: payload.guestId || Date.now(),
+                displayName: payload.guestName || 'New Guest',
+                correctCount: 0
+            });
+            renderGuestList(guestSearch?.value || '');
+            break;
         }
-    } catch (e) {
-        console.error('Failed to execute action', e);
+        case 'GUEST_KICKED': {
+            allGuests = allGuests.filter(g => g.id !== payload.guestId);
+            renderGuestList(guestSearch?.value || '');
+            break;
+        }
+        case 'ANSWER_SUBMITTED': {
+            const ac = parseInt(answerCount?.innerText || '0', 10) + 1;
+            if (answerCount) answerCount.innerText = ac;
+            break;
+        }
+        case 'VOTE_DISTRIBUTION':
+            renderFeedbackChart(payload);
+            break;
+        default:
+            // Game-state events (SHOW_QUESTION etc.) are handled by the
+            // venue display — host panel doesn't need to react to them here.
+            break;
     }
 }
 
-// ─── Button Event Listeners ──────────────────────────────────────────────────
-// Each button maps directly to one of the five backend endpoints defined
-// in HostApiController under the "Live Controls (Week 5)" section.
-
-btnNext.addEventListener('click', () => postAction('next'));           // POST /next
-btnLock.addEventListener('click', () => postAction('lock'));           // POST /lock
-btnReveal.addEventListener('click', () => postAction('reveal'));       // POST /reveal
-btnLeaderboard.addEventListener('click', () => postAction('leaderboard')); // POST /leaderboard
-
-btnFinish.addEventListener('click', async () => {
-    if (!confirm('Are you sure you want to end this event? All guest progress will be cleared.')) return;
-    
-    try {
-        const res = await fetch(`${API_BASE}/finish`, { method: 'POST' });
-        if (res.ok) {
-            window.location.href = '/host/dashboard';
-        }
-    } catch (e) {
-        console.error('Failed to finish event', e);
+// ─── API Action Helper ────────────────────────────────────────────────────────
+async function postAction(action, body = null) {
+    const opts = { method: 'POST' };
+    if (body) {
+        opts.headers = { 'Content-Type': 'application/json' };
+        opts.body = JSON.stringify(body);
     }
+    try {
+        const res = await fetch(`${API_BASE}/${action}`, opts);
+        if (!res.ok) {
+            console.warn(`Action "${action}" failed with status ${res.status}`);
+            return null;
+        }
+        const data = await res.json();
+        // Update status badge if the backend returns a state field
+        if (data.state && statusBadge) {
+            statusBadge.innerText = data.state;
+        }
+        return data;
+    } catch (e) {
+        console.error(`Failed to POST /${action}:`, e);
+        return null;
+    }
+}
+
+// ─── Control Button Bindings ──────────────────────────────────────────────────
+
+// ── Next Slide ── calls /next which increments and broadcasts SHOW_QUESTION
+if (btnNext) {
+    btnNext.addEventListener('click', async () => {
+        const data = await postAction('next');
+        if (data?.success) {
+            liveIndex++;
+            selectedIndex = liveIndex;
+            updateUI();
+            if (answerCount) answerCount.innerText = '0';
+        }
+    });
+}
+
+// ── Skip ── increments past current, broadcasts QUESTION_SKIPPED then SHOW_QUESTION
+if (btnSkip) {
+    btnSkip.addEventListener('click', async () => {
+        const data = await postAction('skip');
+        if (data?.success) {
+            liveIndex++;
+            selectedIndex = liveIndex;
+            updateUI();
+        }
+    });
+}
+
+// ── Lock Answers ──
+if (btnLock) {
+    btnLock.addEventListener('click', () => postAction('lock'));
+}
+
+// ── Reveal Answer ──
+if (btnReveal) {
+    btnReveal.addEventListener('click', () => postAction('reveal'));
+}
+
+// ── Show/Hide Feedback Chart ──
+// We toggle a local flag so we don't destructively overwrite the icon HTML.
+let feedbackVisible = false;
+if (btnFeedback) {
+    btnFeedback.addEventListener('click', () => {
+        feedbackVisible = !feedbackVisible;
+        if (feedbackChart) {
+            feedbackChart.style.display = feedbackVisible ? 'block' : 'none';
+        }
+        // Update only the text node — preserve the SVG icon inside .btn-icon
+        const label = btnFeedback.lastChild;
+        if (label && label.nodeType === Node.TEXT_NODE) {
+            label.textContent = feedbackVisible ? 'Hide Chart' : 'Feedback';
+        } else {
+            // Fallback: append/update a text span
+            let textEl = btnFeedback.querySelector('.btn-label');
+            if (!textEl) {
+                textEl = document.createElement('span');
+                textEl.className = 'btn-label';
+                btnFeedback.appendChild(textEl);
+            }
+            textEl.innerText = feedbackVisible ? 'Hide Chart' : 'Feedback';
+        }
+    });
+}
+
+// ── Push to Live (Safe-Tap) ── used when host has selected a different slide
+if (btnPushLive) {
+    btnPushLive.addEventListener('click', async () => {
+        const data = await postAction('next-to', { questionIndex: selectedIndex });
+        if (data?.success) {
+            liveIndex = selectedIndex;
+            updateUI();
+        }
+    });
+}
+
+// ── Storyteller Pause ──
+if (togglePause) {
+    togglePause.addEventListener('click', () => {
+        isPaused = !isPaused;
+        togglePause.classList.toggle('active', isPaused);
+        postAction('pause', { paused: isPaused });
+    });
+}
+
+// ── End Event (single button, lives in sidebar) ──
+async function handleEndEvent() {
+    const confirmed = confirm(
+        'End this event?\n\nAll guest progress will be cleared and the event will return to DRAFT.'
+    );
+    if (!confirmed) return;
+
+    const data = await postAction('finish');
+    if (data?.success) {
+        window.location.href = '/host/dashboard';
+    }
+}
+
+if (btnEndEvent) {
+    btnEndEvent.addEventListener('click', handleEndEvent);
+}
+
+// ── Show/Hide Preview Sidebar ──
+if (btnToggleSidebar) {
+    btnToggleSidebar.addEventListener('click', () => {
+        const isOpen = document.body.classList.toggle('sidebar-open');
+        if (toggleSidebarText) {
+            toggleSidebarText.innerText = isOpen ? 'Hide Previews' : 'Show Previews';
+        }
+    });
+}
+
+// ─── Soundboard ───────────────────────────────────────────────────────────────
+const SOUND_NAMES = ['drumroll', 'applause', 'buzzer', 'tick', 'tada', 'suspense'];
+const audioCache = {};
+let currentSound = null;
+
+SOUND_NAMES.forEach(name => {
+    const audio = new Audio(`/audio/${name}.mp3`);
+    audio.preload = 'auto';
+    audioCache[name] = audio;
 });
 
-// The pause toggle is a stateless client-side boolean.  Each click flips it
-// and sends the new value to the backend, which broadcasts PAUSE or RESUME
-// to all connected clients.
-togglePause.addEventListener('click', () => {
-    isPaused = !isPaused;
-    togglePause.classList.toggle('active', isPaused);
-    postAction('pause', { paused: isPaused });                        // POST /pause
+document.querySelectorAll('.sound-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const name = btn.dataset.sound;
+        if (!name || !audioCache[name]) return;
+
+        if (currentSound) {
+            currentSound.pause();
+            currentSound.currentTime = 0;
+        }
+        currentSound = audioCache[name];
+        currentSound.currentTime = 0;
+        currentSound.play().catch(e => console.warn('Audio play failed:', e));
+    });
 });
 
-// ─── Startup ─────────────────────────────────────────────────────────────────
-connect();
+// ─── Audience Overview ────────────────────────────────────────────────────────
+async function loadGuests() {
+    try {
+        const res = await fetch(`${API_BASE}/guests`);
+        if (!res.ok) return;
+        const data = await res.json();
+        allGuests = data.guests || [];
+        renderGuestList();
+    } catch (e) {
+        console.error('Failed to load guests:', e);
+    }
+}
+
+function renderGuestList(filterText = '') {
+    if (!guestList) return;
+    guestList.innerHTML = '';
+
+    const lower = filterText.toLowerCase();
+    const filtered = allGuests.filter(g =>
+        (g.displayName || '').toLowerCase().includes(lower)
+    );
+
+    if (guestCountBadge) guestCountBadge.innerText = allGuests.length;
+    if (navGuestCount)   navGuestCount.innerText   = allGuests.length;
+    if (guestCount)      guestCount.innerText      = allGuests.length;
+
+    if (filtered.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'guest-item';
+        empty.style.cssText = 'color:var(--color-stone);font-size:13px;justify-content:center;padding:12px 0;';
+        empty.innerText = filterText ? 'No guests match your search.' : 'No guests yet.';
+        guestList.appendChild(empty);
+        return;
+    }
+
+    filtered.forEach(guest => {
+        const li = document.createElement('li');
+        li.className = 'guest-item';
+        li.id = `guest-${guest.id}`;
+
+        // Sanitise name to prevent XSS
+        const safeDiv = document.createElement('div');
+        safeDiv.innerText = guest.displayName;
+        const safeName = safeDiv.innerHTML;
+
+        li.innerHTML = `
+            <span class="guest-name">${safeName}</span>
+            <span class="guest-score">✓ ${guest.correctCount ?? 0}</span>
+            <button class="btn-kick" data-guest-id="${guest.id}" data-tooltip="Remove ${safeName}">✕</button>
+        `;
+
+        li.querySelector('.btn-kick').addEventListener('click', async e => {
+            e.stopPropagation();
+            if (!confirm(`Remove ${guest.displayName} from this event?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/kick/${guest.id}`, { method: 'POST' });
+                if (res.ok) {
+                    allGuests = allGuests.filter(g => g.id !== guest.id);
+                    renderGuestList(guestSearch?.value || '');
+                }
+            } catch (err) {
+                console.error('Failed to kick guest:', err);
+            }
+        });
+
+        guestList.appendChild(li);
+    });
+}
+
+if (guestSearch) {
+    guestSearch.addEventListener('input', e => renderGuestList(e.target.value));
+}
+
+// ─── Feedback Chart ───────────────────────────────────────────────────────────
+function renderFeedbackChart(data) {
+    const chartBars = document.getElementById('chartBars');
+    if (!chartBars) return;
+    chartBars.innerHTML = '';
+
+    (data.options || []).forEach(opt => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+        const label = document.createElement('div');
+        label.style.cssText = 'width:80px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--color-slate);';
+        label.innerText = opt.text || '';
+
+        const track = document.createElement('div');
+        track.style.cssText = 'flex:1;background:var(--color-pebble);height:10px;border-radius:5px;overflow:hidden;';
+
+        const fill = document.createElement('div');
+        fill.style.cssText = `width:${opt.percentage ?? 0}%;height:100%;background:${opt.color || 'var(--color-deep-teal)'};border-radius:5px;transition:width 0.4s ease;`;
+        track.appendChild(fill);
+
+        const count = document.createElement('div');
+        count.style.cssText = 'width:28px;font-size:12px;text-align:right;color:var(--color-slate);font-weight:600;';
+        count.innerText = opt.count ?? 0;
+
+        row.appendChild(label);
+        row.appendChild(track);
+        row.appendChild(count);
+        chartBars.appendChild(row);
+    });
+}
+
+// ─── Kick off ─────────────────────────────────────────────────────────────────
+init();

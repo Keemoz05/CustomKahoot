@@ -147,6 +147,12 @@ public class GuestService {
         eventGuestRepository.deleteAll(guests);
     }
 
+    @Transactional
+    public void kickGuest(Long guestId) {
+        guestAnswerRepository.deleteAll(guestAnswerRepository.findByGuestId(guestId));
+        eventGuestRepository.deleteById(guestId);
+    }
+
     /**
      * Returns the top N guests for an event, sorted by correctCount DESC.
      * Used by HostApiController.showLeaderboard() to build the top-5 list

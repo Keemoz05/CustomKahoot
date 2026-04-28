@@ -417,70 +417,106 @@ async function importBank(sourceBankId) {
  * Attempts to open the given URL on a secondary display using the Window Management API.
  * Falls back to a standard popup window if no secondary screen exists or permission is denied.
  */
-async function launchProjectorView(url) {
-    try {
-        // Check if the modern Window Management API is supported
-        if ('getScreenDetails' in window) {
-            const screenDetails = await window.getScreenDetails();
-            
-            // Search for a connected secondary display (e.g., a projector or external monitor)
-            const projectorScreen = screenDetails.screens.find(s => s.isExtended);
-            
-            if (projectorScreen) {
-                // Calculate position to spawn perfectly on the second screen
-                const features = `left=${projectorScreen.availLeft},top=${projectorScreen.availTop},width=${projectorScreen.availWidth},height=${projectorScreen.availHeight},fullscreen=yes`;
-                console.log("Spawning on secondary display:", projectorScreen.label);
-                return window.open(url, 'AudienceView', features);
-            }
+/**
+ * Opens the projector window. If screenDetails is provided, it uses the specific screen coordinates.
+ */
+async function launchProjectorView(url, projectorScreen = null) {
+    let audienceWindow = null;
+    
+    // 1. Try to use the provided screen details (from the modern API)
+    if (projectorScreen) {
+        try {
+            const features = `left=${projectorScreen.availLeft},top=${projectorScreen.availTop},width=${projectorScreen.availWidth},height=${projectorScreen.availHeight},fullscreen=yes`;
+            console.log("Opening on requested screen:", projectorScreen.label);
+            audienceWindow = window.open(url, 'AudienceView', features);
+        } catch (err) {
+            console.warn("Failed to open on specific screen, falling back.", err);
         }
-    } catch (err) {
-        console.warn("Window Management API permission denied or failed. Falling back.", err);
     }
     
-    // Fallback: Just open a large popup window for the host to drag over manually
-    return window.open(url, 'AudienceView', 'width=1280,height=720,fullscreen=yes');
+    // 2. Fallback: Standard popup if no screen info or previous attempt failed
+    if (!audienceWindow) {
+        audienceWindow = window.open(url, 'AudienceView', 'width=1280,height=720,fullscreen=yes');
+    }
+
+    // 3. FINAL CHECK: Popup Blocker
+    if (!audienceWindow || audienceWindow.closed || typeof audienceWindow.closed === 'undefined') {
+        alert("Pop-up Blocked! Please allow pop-ups for this site so we can open the Audience Display.");
+        return null; 
+    }
+
+    return audienceWindow;
 }
 
 async function goLive() {
     btnConfirmStart.disabled = true;
-    btnConfirmStart.textContent = 'Going live...';
+    btnConfirmStart.textContent = 'Preparing...';
 
+    let projectorScreen = null;
+
+    // STEP 1: Verify Window Permissions FIRST
+    // This triggers the permission prompt while we are still in the User Gesture context.
+    if ('getScreenDetails' in window) {
+        try {
+            const screenDetails = await window.getScreenDetails();
+            projectorScreen = screenDetails.screens.find(s => s.isExtended) || screenDetails.screens[0];
+        } catch (err) {
+            if (err.name === 'NotAllowedError') {
+                alert("Permission Denied: You must allow 'Window Management' to start the event.");
+                resetGoLiveButton();
+                return; // ABORT: Event never starts on the backend
+            }
+            console.warn("Window Management API failed, will try fallback popup.", err);
+        }
+    }
+
+    // STEP 2: Call the backend ONLY if permission was granted (or if API not supported)
+    btnConfirmStart.textContent = 'Going live...';
     try {
         const res = await fetch(`${API_BASE}/go-live`, { method: 'POST' });
+        
         if (res.ok) {
             const data = await res.json();
             
-            // Close the confirmation modal
-            confirmStartModal.classList.remove('active');
-            
-            // [NEW] Use the Window Management API to launch the Audience display
-            const audienceWindow = await launchProjectorView(data.displayUrl);
+            // STEP 3: Launch the window with the confirmed screen details
+            const audienceWindow = await launchProjectorView(data.displayUrl, projectorScreen);
 
-            // Optional: Track if the projector gets accidentally closed
-            if (audienceWindow) {
-                const checkClosed = setInterval(() => {
-                    if (audienceWindow.closed) {
-                        alert("Warning: The Projector Window was closed!");
-                        clearInterval(checkClosed);
-                    }
-                }, 2000);
+            if (!audienceWindow) {
+                // This only happens if a physical POPUP BLOCKER stopped the window
+                // even after the permission prompt was accepted.
+                resetGoLiveButton();
+                return; 
             }
 
-            // Route the Host directly to their Presenter Control Panel,
-            // bypassing the manual Lobby Overlay completely.
+            // SUCCESS
+            confirmStartModal.classList.remove('active');
+
+            // Track if the projector gets accidentally closed
+            const checkClosed = setInterval(() => {
+                if (audienceWindow.closed) {
+                    alert("Warning: The Projector Window was closed!");
+                    clearInterval(checkClosed);
+                }
+            }, 2000);
+
+            // Finally, redirect the Host to their control panel
             window.location.href = data.hostLiveUrl;
             
         } else {
             const err = await res.json();
             alert(err.error || 'Could not go live. Please try again.');
-            btnConfirmStart.disabled = false;
-            btnConfirmStart.textContent = 'Yes, Start';
+            resetGoLiveButton();
         }
     } catch (e) {
+        console.error(e);
         alert('Network error. Please try again.');
-        btnConfirmStart.disabled = false;
-        btnConfirmStart.textContent = 'Yes, Start';
+        resetGoLiveButton();
     }
+}
+
+function resetGoLiveButton() {
+    btnConfirmStart.disabled = false;
+    btnConfirmStart.textContent = 'Yes, Start';
 }
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────

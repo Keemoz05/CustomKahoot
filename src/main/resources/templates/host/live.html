@@ -61,11 +61,11 @@
         </ul>
 
         <div class="nav-footer">
-            <button id="btnAddSegment" class="nav-footer-btn" data-tooltip="Add a bonus question or segment">
+            <button id="btnAddSegment" class="nav-footer-btn">
                 + Add Segment
             </button>
             <!-- Single consolidated End Event — only lives here -->
-            <button id="btnEndEvent" class="nav-footer-btn nav-footer-end" data-tooltip="End the event and return to dashboard">
+            <button id="btnEndEvent" class="nav-footer-btn nav-footer-end">
                 ⏹ End Event
             </button>
         </div>
@@ -102,8 +102,18 @@
 
             <div class="controls-grid">
 
+                <!-- Previous Slide -->
+                <button id="btnPrev" class="btn-control">
+                    <div class="btn-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+                        </svg>
+                    </div>
+                    Previous
+                </button>
+
                 <!-- PRIMARY: Next Slide -->
-                <button id="btnNext" class="btn-control btn-next" data-tooltip="Advance to next slide">
+                <button id="btnNext" class="btn-control btn-next">
                     <div class="btn-icon">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
@@ -112,18 +122,8 @@
                     Next Slide
                 </button>
 
-                <!-- Skip -->
-                <button id="btnSkip" class="btn-control" data-tooltip="Skip current question">
-                    <div class="btn-icon">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>
-                        </svg>
-                    </div>
-                    Skip
-                </button>
-
                 <!-- Lock Answers -->
-                <button id="btnLock" class="btn-control" data-tooltip="Lock answer submissions">
+                <button id="btnLock" class="btn-control">
                     <div class="btn-icon">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="11" width="18" height="11" rx="2"/>
@@ -134,7 +134,7 @@
                 </button>
 
                 <!-- Show Feedback -->
-                <button id="btnFeedback" class="btn-control" data-tooltip="Show vote distribution">
+                <button id="btnFeedback" class="btn-control">
                     <div class="btn-icon">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
@@ -144,7 +144,7 @@
                 </button>
 
                 <!-- Reveal Answer -->
-                <button id="btnReveal" class="btn-control" data-tooltip="Reveal correct answer on screen">
+                <button id="btnReveal" class="btn-control">
                     <div class="btn-icon">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
@@ -168,12 +168,12 @@
         <div class="soundboard-strip">
             <div class="controls-section-label">Soundboard</div>
             <div class="sound-buttons">
-                <button class="sound-btn" data-sound="drumroll"  data-tooltip="Drumroll">🥁</button>
-                <button class="sound-btn" data-sound="applause"  data-tooltip="Applause">👏</button>
-                <button class="sound-btn" data-sound="buzzer"    data-tooltip="Buzzer">❌</button>
-                <button class="sound-btn" data-sound="tick"      data-tooltip="Tick tock">⏰</button>
-                <button class="sound-btn" data-sound="tada"      data-tooltip="Fanfare">🎉</button>
-                <button class="sound-btn" data-sound="suspense"  data-tooltip="Suspense">😰</button>
+                <button class="sound-btn" data-sound="drumroll">🥁</button>
+                <button class="sound-btn" data-sound="applause">👏</button>
+                <button class="sound-btn" data-sound="buzzer">❌</button>
+                <button class="sound-btn" data-sound="tick">⏰</button>
+                <button class="sound-btn" data-sound="tada">🎉</button>
+                <button class="sound-btn" data-sound="suspense">😰</button>
             </div>
         </div>
 

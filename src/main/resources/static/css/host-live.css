@@ -739,17 +739,17 @@
 }
 
 /* ─── Preview iframe zoom wrappers ───────────────────────────────────────────
-   Both views use the same scaling trick:
-     1. The wrapper is the visible "window" — it clips overflow and sets the
-        displayed aspect ratio.
-     2. The iframe is rendered at SCALE_FACTOR× the container size, then
-        CSS transform shrinks it back. This makes the page content appear
-        zoomed out (i.e. you see more of it) without the page itself
-        knowing it's being scaled.
+   Fixed-viewport approach:
+     1. Each iframe is given the exact pixel dimensions of its target device
+        (1440×810 for projector, 390×844 for phone).
+     2. The wrapper clips overflow and sets the display aspect ratio.
+     3. JS computes the exact scale factor (container-width / iframe-width)
+        on load and resize, so the iframe fits its container perfectly
+        regardless of sidebar width.
 
-   SCALE_FACTOR = 0.4  →  the rendered viewport is 1/0.4 = 2.5× larger
-   than what the wrapper shows. A 360px-wide sidebar shows content as if
-   it were 900px wide — enough to see the full lobby or guest screen.
+   This avoids the percentage-based sizing bug where the iframe's internal
+   viewport didn't match any real device, causing content to render at
+   wrong breakpoints and appear misaligned.
    ─────────────────────────────────────────────────────────────────────── */
 
 .iframe-zoom-wrap {
@@ -759,11 +759,11 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-pebble);
   box-shadow: var(--shadow-sm);
-  background: white;
+  background: var(--color-snow);
   flex-shrink: 0;
 }
 
-/* Projector: standard 16:9 widescreen */
+/* Projector: 16:9 — renders at 1440×810 desktop viewport */
 .projector-wrap {
   aspect-ratio: 16 / 9;
 }
@@ -772,23 +772,21 @@
   position: absolute;
   top: 0;
   left: 0;
-  /* Render at 250% of the container — content appears at 40% scale */
-  width:  250%;
-  height: 250%;
-  transform: scale(0.4);
-  transform-origin: top left;
+  width: 1440px;
+  height: 810px;
+  transform-origin: 0 0;
+  /* scale is set dynamically by JS — initPreviewScaling() */
   border: none;
-  pointer-events: none; /* preview only — not interactive */
   display: block;
 }
 
-/* Phone: 9:16 portrait, full sidebar width (same as projector) */
+/* Phone: 9:16 — renders at 390×844 (iPhone 14-class viewport) */
 .phone-wrap {
   aspect-ratio: 9 / 16;
-  border-radius: 24px;
+  border-radius: 20px;
   border: 2px solid var(--color-pebble);
   box-shadow:
-    0 0 0 5px var(--color-linen),
+    0 0 0 4px var(--color-linen),
     var(--shadow-lg);
 }
 
@@ -796,12 +794,11 @@
   position: absolute;
   top: 0;
   left: 0;
-  width:  250%;
-  height: 250%;
-  transform: scale(0.7);
-  transform-origin: top left;
+  width: 390px;
+  height: 844px;
+  transform-origin: 0 0;
+  /* scale is set dynamically by JS — initPreviewScaling() */
   border: none;
-  pointer-events: none;
   display: block;
 }
 

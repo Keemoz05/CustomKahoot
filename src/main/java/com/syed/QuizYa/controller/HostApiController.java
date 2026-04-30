@@ -43,12 +43,13 @@ public class HostApiController {
     @Value("${server.port:8080}")
     private int serverPort;
 
-    public HostApiController(QuestionService questionService,
-                             EventService eventService,
-                             MediaService mediaService,
-                             QuestionRepository questionRepository,
-                             GuestService guestService,
-                             UrlDiscoveryService urlDiscoveryService) {
+    public HostApiController(
+        QuestionService questionService,
+        EventService eventService,
+        MediaService mediaService,
+        QuestionRepository questionRepository,
+        GuestService guestService,
+        UrlDiscoveryService urlDiscoveryService) {
         this.questionService = questionService;
         this.eventService = eventService;
         this.mediaService = mediaService;
@@ -135,14 +136,18 @@ public class HostApiController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 
-    // ─── Answer Options ──────────────────────────────────────────────────────
-
+    //Express JS Syntax Comments
+    //router.post('/questions/:qId/options', async (req, res) => {
     @PostMapping("/questions/{qId}/options")
+    
+    // Equivalent to: const qId = req.params.qId;
     public ResponseEntity<?> addOption(@PathVariable Long qId) {
+        // Equivalent to: const opt = await questionService.addOption(qId);
         QuestionOption opt = questionService.addOption(qId);
+        // Equivalent to: return res.json({ success: true, id: opt.id, color: opt.colorHex });
         return ResponseEntity.ok(Map.of("success", true, "id", opt.getId(), "color", opt.getColorHex()));
     }
-
+    // Equivalent to: router.put('/options/:optId', async (req, res) => {
     @PutMapping("/options/{optId}")
     public ResponseEntity<?> updateOption(@PathVariable Long optId, @RequestBody Map<String, Object> payload) {
         String text = (String) payload.get("text");
@@ -321,38 +326,9 @@ public class HostApiController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    // ─── Live Controls (Week 5) ───────────────────────────────────────────────
-    //
-    // These five endpoints implement the host's real-time game pacing controls
-    // (Use Cases H6, H7, S1).  The intended flow is:
-    //
-    //   1. Host clicks "Next Slide"  → /next   → broadcasts SHOW_QUESTION
-    //   2. Host clicks "Lock"        → /lock   → broadcasts LOCK_ANSWERS
-    //   3. Host clicks "Reveal"      → /reveal → broadcasts REVEAL_ANSWER
-    //   4. Host clicks "Leaderboard" → /leaderboard → broadcasts SHOW_LEADERBOARD
-    //                                              + private RANK_UPDATE per guest
-    //   5. Host toggles pause        → /pause  → broadcasts PAUSE / RESUME
-    //
-    // Every endpoint constructs a JSON payload with a "type" key and sends it
-    // to two WebSocket topics:
-    //   - /topic/event/{id}/guest  → all guest play.html pages
-    //   - /topic/event/{id}/lobby  → the venue display screen (lobby.html)
-    // The frontends switch their UI state based on the "type" value.
-    // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * POST /next
-     *
-     * Advances the event to the next question.  Increments the event's
-     * currentQuestionIndex (1-based), loads that question + its options from
-     * the event's default QuestionBank, and broadcasts a SHOW_QUESTION payload
-     * containing the prompt text and answer options to both guests and the
-     * venue display.
-     *
-     * Returns 400 if there are no more questions left in the bank.
-     */
-    @PostMapping("/next")
-    public ResponseEntity<?> nextQuestion(@PathVariable Long eventId) {
+
+    private ResponseEntity<?> nextQuestion(Long eventId) {
         com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
 
         // Increment the 1-based question pointer stored on the Event entity.
@@ -595,7 +571,7 @@ public class HostApiController {
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", paused ? "PAUSE" : "RESUME");
         eventService.broadcastToGuests(eventId, payload);
-        eventService.broadcastToDisplay(eventId, payload);
+        // Removed broadcastToDisplay so it only affects the audience view
         return ResponseEntity.ok(Map.of("success", true, "paused", paused));
     }
 }

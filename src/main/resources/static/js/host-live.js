@@ -15,8 +15,7 @@
 const API_BASE = `/api/host/events/${window.EVENT_ID}`;
 
 // ─── Ngrok Warning Bypass ─────────────────────────────────────────────────────
-// Intercepts every fetch() to inject the header that bypasses Ngrok's browser
-// interstitial page when tunnelling.  No-op on non-Ngrok hosts.
+// Passes the header to ngrok to skip the browser warning 
 const _origFetch = window.fetch;
 window.fetch = async function (...args) {
     let [resource, config] = args;
@@ -28,7 +27,7 @@ window.fetch = async function (...args) {
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 const btnNext        = document.getElementById('btnNext');
-const btnSkip        = document.getElementById('btnSkip');
+const btnPrev        = document.getElementById('btnPrev');
 const btnLock        = document.getElementById('btnLock');
 const btnFeedback    = document.getElementById('btnFeedback');
 const btnReveal      = document.getElementById('btnReveal');
@@ -120,7 +119,8 @@ function renderNavList() {
     // Round header
     const roundHeader = document.createElement('li');
     roundHeader.className = 'nav-item round-header';
-    roundHeader.innerHTML = `<span class="nav-chevron">▾</span> Main Round`;
+    roundHeader.style.cursor = 'pointer';
+    roundHeader.innerHTML = `<span class="nav-chevron" style="display:inline-block;transition:transform 0.2s ease;">▾</span> Main Round`;
     navList.appendChild(roundHeader);
 
     // Question items
@@ -144,6 +144,14 @@ function renderNavList() {
         li.innerHTML = `<span class="nav-dot"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Q${slideIndex}: ${shortText}</span>`;
         li.addEventListener('click', () => selectSlide(slideIndex));
         roundUl.appendChild(li);
+    });
+
+    roundHeader.addEventListener('click', () => {
+        roundUl.classList.toggle('expanded');
+        const chevron = roundHeader.querySelector('.nav-chevron');
+        if (chevron) {
+            chevron.style.transform = roundUl.classList.contains('expanded') ? 'rotate(0deg)' : 'rotate(-90deg)';
+        }
     });
 
     navList.appendChild(roundUl);
@@ -220,6 +228,7 @@ function updateUI() {
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 function connectWebSocket() {
+    //from WebSocketConfig.java
     const socket = new SockJS('/ws');
     stompClient = Stomp.over(socket);
     stompClient.debug = null;
@@ -297,27 +306,34 @@ async function postAction(action, body = null) {
 
 // ─── Control Button Bindings ──────────────────────────────────────────────────
 
-// ── Next Slide ── calls /next which increments and broadcasts SHOW_QUESTION
+// ── Next Slide ── uses /next-to for explicit index control
 if (btnNext) {
     btnNext.addEventListener('click', async () => {
-        const data = await postAction('next');
-        if (data?.success) {
-            liveIndex++;
-            selectedIndex = liveIndex;
-            updateUI();
-            if (answerCount) answerCount.innerText = '0';
+        // Prevent going past the last question
+        if (liveIndex < allQuestions.length) {
+            const data = await postAction('next-to', { questionIndex: liveIndex + 1 });
+            if (data?.success) {
+                liveIndex++;
+                selectedIndex = liveIndex;
+                updateUI();
+                if (answerCount) answerCount.innerText = '0';
+            }
+        } else {
+            console.warn("Already at the last slide.");
         }
     });
 }
 
-// ── Skip ── increments past current, broadcasts QUESTION_SKIPPED then SHOW_QUESTION
-if (btnSkip) {
-    btnSkip.addEventListener('click', async () => {
-        const data = await postAction('skip');
-        if (data?.success) {
-            liveIndex++;
-            selectedIndex = liveIndex;
-            updateUI();
+// ── Previous Slide ── calls /next-to to go back
+if (btnPrev) {
+    btnPrev.addEventListener('click', async () => {
+        if (liveIndex > 1) {
+            const data = await postAction('next-to', { questionIndex: liveIndex - 1 });
+            if (data?.success) {
+                liveIndex--;
+                selectedIndex = liveIndex;
+                updateUI();
+            }
         }
     });
 }
@@ -395,15 +411,64 @@ if (btnEndEvent) {
     btnEndEvent.addEventListener('click', handleEndEvent);
 }
 
-// ── Show/Hide Preview Sidebar ──
+// ── Show/Hide Preview Sidebar — with localStorage persistence ──
+const SIDEBAR_KEY = 'quizya-sidebar-open';
+
+function setSidebarOpen(isOpen) {
+    document.body.classList.toggle('sidebar-open', isOpen);
+    if (toggleSidebarText) {
+        toggleSidebarText.innerText = isOpen ? 'Hide Previews' : 'Show Previews';
+    }
+    localStorage.setItem(SIDEBAR_KEY, isOpen ? '1' : '0');
+
+    // After the CSS grid transition finishes, recompute iframe scales
+    // (the sidebar column width changes, so the wrapper sizes change)
+    setTimeout(scalePreviewIframes, 350);
+}
+
+// Restore sidebar state from localStorage on page load
+const savedSidebar = localStorage.getItem(SIDEBAR_KEY);
+if (savedSidebar === '1') {
+    setSidebarOpen(true);
+}
+
 if (btnToggleSidebar) {
     btnToggleSidebar.addEventListener('click', () => {
-        const isOpen = document.body.classList.toggle('sidebar-open');
-        if (toggleSidebarText) {
-            toggleSidebarText.innerText = isOpen ? 'Hide Previews' : 'Show Previews';
-        }
+        const isOpen = !document.body.classList.contains('sidebar-open');
+        setSidebarOpen(isOpen);
     });
 }
+
+// ─── Dynamic iframe scaling ───────────────────────────────────────────────────
+// Each preview iframe has a fixed pixel viewport (set in CSS):
+//   Projector: 1440 × 810   (desktop 16:9)
+//   Phone:      390 × 844   (iPhone 14-class 9:16)
+//
+// We compute: scale = container_width / iframe_native_width
+// and apply it as a CSS transform.  This is recalculated whenever the
+// sidebar opens/closes or the window resizes.
+
+function scalePreviewIframes() {
+    const projectorWrap   = document.querySelector('.projector-wrap');
+    const projectorIframe = projectorWrap?.querySelector('iframe');
+    if (projectorWrap && projectorIframe) {
+        const scale = projectorWrap.clientWidth / 1440;
+        projectorIframe.style.transform = `scale(${scale})`;
+    }
+
+    const phoneWrap   = document.querySelector('.phone-wrap');
+    const phoneIframe = phoneWrap?.querySelector('iframe');
+    if (phoneWrap && phoneIframe) {
+        const scale = phoneWrap.clientWidth / 390;
+        phoneIframe.style.transform = `scale(${scale})`;
+    }
+}
+
+// Run on load (after a short delay so the layout has settled)
+setTimeout(scalePreviewIframes, 500);
+
+// Re-run on resize
+window.addEventListener('resize', scalePreviewIframes);
 
 // ─── Soundboard ───────────────────────────────────────────────────────────────
 const SOUND_NAMES = ['drumroll', 'applause', 'buzzer', 'tick', 'tada', 'suspense'];

@@ -42,6 +42,7 @@ const previewOptions = document.getElementById('previewOptions');
 const feedbackChart  = document.getElementById('feedbackChart');
 const btnPushLive    = document.getElementById('btnPushLive');
 const outOfSyncBadge = document.getElementById('outOfSyncBadge');
+const liveBadge      = document.getElementById('liveBadge');
 
 const navList        = document.getElementById('navList');
 const progressFill   = document.getElementById('progressFill');
@@ -63,8 +64,8 @@ let stompClient     = null;
 let isPaused        = false;
 let allQuestions    = [];
 let allGuests       = [];
-let selectedIndex   = 0;  // Slide the host is PREVIEWING (0 = Welcome)
-let liveIndex       = 0;  // Slide currently LIVE on screens
+let selectedIndex   = window.INITIAL_INDEX || 0;  // Slide the host is PREVIEWING
+let liveIndex       = window.INITIAL_INDEX || 0;  // Slide currently LIVE on screens
 
 // ─── Startup ──────────────────────────────────────────────────────────────────
 async function init() {
@@ -198,12 +199,41 @@ function updateUI() {
     const isSynced = selectedIndex === liveIndex;
     if (btnPushLive)   btnPushLive.style.display  = isSynced ? 'none' : 'block';
     if (outOfSyncBadge) outOfSyncBadge.style.display = isSynced ? 'none' : 'inline-block';
+    if (liveBadge)      liveBadge.style.display      = isSynced ? 'inline-block' : 'none';
 
     // Render preview content
     if (previewOptions) previewOptions.innerHTML = '';
     if (selectedIndex === 0) {
-        if (questionPreview) questionPreview.innerHTML = 'Welcome / Lobby Screen';
+        if (questionPreview) {
+            questionPreview.innerHTML = 'Welcome / Lobby Screen';
+        }
+        if (previewOptions) {
+            previewOptions.style.display = 'none';
+            // Create a lobby preview card
+            const lobbyCard = document.createElement('div');
+            lobbyCard.className = 'lobby-preview-card';
+            lobbyCard.innerHTML = `
+                <h3 class="lobby-preview-title">${document.querySelector('.header-title')?.innerText || 'Event'}</h3>
+                <div class="lobby-preview-info">
+                    <span class="lobby-preview-label">Join Code</span>
+                    <span class="lobby-preview-code">${window.JOIN_CODE || '------'}</span>
+                </div>
+                <div style="margin-top: var(--space-4); color: var(--color-slate); font-size: 14px;">
+                    Waiting for guests to join...
+                </div>
+            `;
+            const zone = document.querySelector('.preview-zone');
+            // Remove existing lobby card if any
+            const existing = zone.querySelector('.lobby-preview-card');
+            if (existing) existing.remove();
+            zone.insertBefore(lobbyCard, btnPushLive);
+        }
         return;
+    } else {
+        // Ensure lobby card is removed when not on index 0
+        const existing = document.querySelector('.lobby-preview-card');
+        if (existing) existing.remove();
+        if (previewOptions) previewOptions.style.display = 'grid';
     }
 
     const q = allQuestions[selectedIndex - 1];
@@ -327,7 +357,7 @@ if (btnNext) {
 // ── Previous Slide ── calls /next-to to go back
 if (btnPrev) {
     btnPrev.addEventListener('click', async () => {
-        if (liveIndex > 1) {
+        if (liveIndex > 0) {
             const data = await postAction('next-to', { questionIndex: liveIndex - 1 });
             if (data?.success) {
                 liveIndex--;

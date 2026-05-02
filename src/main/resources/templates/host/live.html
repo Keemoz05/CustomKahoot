@@ -12,6 +12,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <script th:inline="javascript">
         window.EVENT_ID = /*[[${event.id}]]*/ 0;
+        window.JOIN_CODE = /*[[${event.joinCode}]]*/ '';
+        window.INITIAL_INDEX = /*[[${event.currentQuestionIndex}]]*/ 0;
     </script>
 </head>
 <body class="live-layout">
@@ -81,6 +83,7 @@
                     Slide <span id="selectedSlideNum">1</span> / <span id="totalSlides">0</span>
                 </span>
                 <span id="outOfSyncBadge" class="out-of-sync-badge">⚠ Not Live</span>
+                <span id="liveBadge" class="live-badge" style="display:none;">🔴 Live on Screen</span>
             </div>
 
             <!-- Left-aligned question heading -->
@@ -93,7 +96,19 @@
                 <div id="chartBars" style="display:flex;flex-direction:column;gap:6px;"></div>
             </div>
 
-            <button id="btnPushLive" class="btn-push-live">🔴 Push to Live</button>
+            <button id="btnPushLive" class="btn-push-live">
+                <div class="btn-push-inner">
+                    <div class="btn-push-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>
+                        </svg>
+                    </div>
+                    <div class="btn-push-label">
+                        <span class="btn-push-main">Make This Live</span>
+                        <span class="btn-push-sub">Apply this view to all screens</span>
+                    </div>
+                </div>
+            </button>
         </div>
 
         <!-- ── Controls Zone: action buttons ──────────────────────────── -->
@@ -207,7 +222,7 @@
             <div class="preview-frame audience-frame">
                 <div class="preview-frame-label">Audience View</div>
                 <div class="iframe-zoom-wrap phone-wrap">
-                    <iframe th:src="'/display/' + ${event.joinCode} + '/audience-preview'" id="audiencePreview"></iframe>
+                    <iframe th:src="'/display/' + ${event.joinCode} + '/preview-play'" id="audiencePreview"></iframe>
                 </div>
             </div>
 

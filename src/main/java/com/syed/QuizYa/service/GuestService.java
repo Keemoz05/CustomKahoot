@@ -64,13 +64,32 @@ public class GuestService {
         return guest;
     }
 
+    /**
+     * Creates a silent "preview" guest for the host's audience-preview iframe.
+     * Unlike joinEvent(), this does NOT broadcast GUEST_JOINED to the lobby,
+     * so the preview observer never appears in the real audience roster.
+     */
+    @Transactional
+    public EventGuest joinEventAsPreview(String joinCode) {
+        Event event = eventRepository.findByJoinCode(joinCode)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid join code"));
+
+        EventGuest guest = new EventGuest();
+        guest.setEvent(event);
+        guest.setDisplayName("[Preview]");
+        guest.setSessionToken(UUID.randomUUID().toString());
+        guest.setIsPreview(true);
+        return eventGuestRepository.save(guest);
+    }
+
     public EventGuest getGuestByToken(String token) {
         return eventGuestRepository.findBySessionToken(token)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid session token"));
     }
 
     public java.util.List<EventGuest> getGuestsForEvent(Long eventId) {
-        return eventGuestRepository.findByEventId(eventId);
+        // Exclude preview guests so the host audience list only shows real participants
+        return eventGuestRepository.findByEventIdAndIsPreviewFalse(eventId);
     }
 
     @Transactional
@@ -124,7 +143,7 @@ public class GuestService {
      */
     @Transactional(readOnly = true)
     public int calculateRank(Long eventId, Long guestId) {
-        java.util.List<EventGuest> guests = eventGuestRepository.findByEventIdOrderByCorrectCountDesc(eventId);
+        java.util.List<EventGuest> guests = eventGuestRepository.findByEventIdAndIsPreviewFalseOrderByCorrectCountDesc(eventId);
         for (int i = 0; i < guests.size(); i++) {
             if (guests.get(i).getId().equals(guestId)) {
                 return i + 1;
@@ -163,7 +182,7 @@ public class GuestService {
      */
     @Transactional(readOnly = true)
     public java.util.List<EventGuest> getTopGuests(Long eventId, int limit) {
-        java.util.List<EventGuest> guests = eventGuestRepository.findByEventIdOrderByCorrectCountDesc(eventId);
+        java.util.List<EventGuest> guests = eventGuestRepository.findByEventIdAndIsPreviewFalseOrderByCorrectCountDesc(eventId);
         return guests.stream().limit(limit).collect(java.util.stream.Collectors.toList());
     }
 }

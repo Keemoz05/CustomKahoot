@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playing - QuizYa</title>
+    <title>Audience Preview - QuizYa</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
@@ -38,7 +38,7 @@
             --radius-lg: 12px;
             --radius-xl: 16px;
             --radius-full: 9999px;
-            
+
             --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
             --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
@@ -53,6 +53,32 @@
             flex-direction: column;
             min-height: 100vh;
             color: var(--color-charcoal);
+        }
+
+        /* ── Preview Mode Banner ─────────────────────────────────────────── */
+        .preview-banner {
+            background: var(--color-charcoal);
+            color: rgba(255,255,255,0.85);
+            text-align: center;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 6px var(--space-4);
+        }
+        .preview-banner span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f87171;
+            margin-right: 6px;
+            vertical-align: middle;
+            animation: blink 1.4s ease-in-out infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
         }
 
         .header {
@@ -73,10 +99,7 @@
             color: var(--color-charcoal);
             letter-spacing: -0.5px;
         }
-
-        .logo span {
-            color: var(--color-deep-teal);
-        }
+        .logo span { color: var(--color-deep-teal); }
 
         .guest-badge {
             background-color: white;
@@ -124,12 +147,7 @@
             text-align: center;
             padding: var(--space-12) var(--space-4);
         }
-
-        .centered-icon {
-            font-size: 48px;
-            margin-bottom: var(--space-6);
-        }
-
+        .centered-icon { font-size: 48px; margin-bottom: var(--space-6); }
         .centered-title {
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 24px;
@@ -137,7 +155,6 @@
             color: var(--color-charcoal);
             margin-bottom: var(--space-2);
         }
-
         .centered-sub {
             color: var(--color-slate);
             font-size: 16px;
@@ -150,7 +167,6 @@
             justify-content: space-between;
             align-items: flex-start;
         }
-
         .question-prompt {
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 24px;
@@ -161,7 +177,6 @@
             flex: 1;
             padding-right: var(--space-4);
         }
-
         .participant-stats {
             display: flex;
             align-items: center;
@@ -180,6 +195,7 @@
             gap: var(--space-4);
         }
 
+        /* Observer: buttons look identical but are completely non-interactive */
         .option-btn {
             background: white;
             border: 1px solid var(--color-pebble);
@@ -189,7 +205,8 @@
             font-weight: 500;
             border-radius: var(--radius-lg);
             color: var(--color-charcoal);
-            cursor: pointer;
+            cursor: default;             /* no pointer */
+            pointer-events: none;        /* fully disabled */
             transition: all 0.2s ease;
             text-align: left;
             position: relative;
@@ -199,35 +216,12 @@
             align-items: center;
             min-height: 64px;
         }
-
         .option-btn::before {
             content: '';
             position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
+            left: 0; top: 0; bottom: 0;
             width: 8px;
             background-color: var(--color-pebble);
-            transition: background-color 0.2s ease;
-        }
-
-        .option-btn:hover {
-            border-color: var(--color-stone);
-            background-color: var(--color-snow);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .option-btn:active {
-            transform: translateY(0);
-        }
-
-        .option-btn.locked {
-            opacity: 0.7;
-            pointer-events: none;
-            background-color: var(--color-warm-white);
-            transform: none;
-            box-shadow: none;
         }
 
         .rank-number {
@@ -237,7 +231,7 @@
             color: var(--color-deep-teal);
             margin: var(--space-6) 0;
         }
-        
+
         .footer {
             padding: var(--space-6);
             text-align: center;
@@ -249,13 +243,14 @@
     </style>
 </head>
 <body>
+    <!-- Preview Mode indicator strip -->
+    <div class="preview-banner"><span></span>Host Preview — Observer Mode</div>
+
     <div class="header">
         <div class="logo">Q<span>uizYa</span></div>
-        <div class="guest-badge">
-            <span th:text="${guest.displayName}">Anonymous</span>
-        </div>
+        <div class="guest-badge">👁 Preview</div>
     </div>
-    
+
     <div class="content-area">
         <!-- State: Waiting -->
         <div id="state-waiting" class="view-state active">
@@ -265,22 +260,21 @@
                 <div class="centered-sub">Look at the big screen.<br>Waiting for the host to start...</div>
             </div>
         </div>
-        
+
         <!-- State: Question -->
         <div id="state-question" class="view-state">
             <div class="card">
                 <div class="question-header">
                     <h2 id="questionPrompt" class="question-prompt">Question</h2>
                     <div class="participant-stats">
-                        <span id="correctCount" th:text="${guest.correctCount}">0</span>
+                        <span id="correctCount">0</span>
                         <span>⭐</span>
                     </div>
                 </div>
-                
                 <div id="optionsContainer" class="options-grid"></div>
             </div>
         </div>
-        
+
         <!-- State: Locked / Feedback -->
         <div id="state-feedback" class="view-state">
             <div class="card centered-state">
@@ -288,7 +282,7 @@
                 <div id="feedbackText" class="centered-title">Waiting for others...</div>
             </div>
         </div>
-        
+
         <!-- State: Rank -->
         <div id="state-rank" class="view-state">
             <div class="card centered-state">
@@ -297,14 +291,13 @@
                 <div class="centered-title">Keep it up!</div>
             </div>
         </div>
-        
+
         <!-- State: Finished -->
         <div id="state-finished" class="view-state">
             <div class="card centered-state">
                 <div class="centered-icon">🎉</div>
                 <div class="centered-title">Event Ended</div>
                 <div class="centered-sub">Thanks for playing!</div>
-                
                 <div style="margin-top: var(--space-8); padding-top: var(--space-6); border-top: 1px solid var(--color-pebble);">
                     <div class="centered-sub">Final Rank</div>
                     <div id="finalRankNumber" class="rank-number" style="margin: var(--space-2) 0; font-size: 48px;">--</div>
@@ -312,62 +305,54 @@
             </div>
         </div>
     </div>
-    
-    <div class="footer">
-        Powered by QuizYa
-    </div>
-    
+
+    <div class="footer">Powered by QuizYa</div>
+
     <script th:inline="javascript">
         /*<![CDATA[*/
         const eventId = /*[[${guest.event.id}]]*/ null;
         const guestId = /*[[${guest.id}]]*/ null;
         /*]]>*/
-        
+
         let stompClient = null;
-        
+
         function connect() {
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.debug = null; 
-            
-            stompClient.connect({}, function (frame) {
-                console.log('Connected to WebSocket');
-                
+            stompClient.debug = null;
+
+            stompClient.connect({}, function () {
+                // Subscribe to the shared event topic — same as a real guest
                 stompClient.subscribe('/topic/event/' + eventId + '/guest', function (message) {
                     handleEventMessage(JSON.parse(message.body));
                 });
-                
+
+                // Subscribe to personal queue for rank updates (preview rank is meaningless but keeps UI in sync)
                 stompClient.subscribe('/queue/guest/' + guestId, function (message) {
                     handleGuestMessage(JSON.parse(message.body));
                 });
             });
         }
-        
+
         function switchState(stateId) {
             document.querySelectorAll('.view-state').forEach(el => el.classList.remove('active'));
             document.getElementById(stateId).classList.add('active');
         }
-        
+
         function handleEventMessage(msg) {
             if (msg.type === 'SHOW_QUESTION') {
                 document.getElementById('questionPrompt').innerText = msg.prompt || 'Choose an option';
                 const container = document.getElementById('optionsContainer');
                 container.innerHTML = '';
-                
+
                 msg.options.forEach(opt => {
                     const btn = document.createElement('button');
                     btn.className = 'option-btn';
-                    // Optional: keep backend colors but as left border to mimic slido?
-                    // Let's use it as a left border indicator
-                    if(opt.color) {
-                        btn.style.setProperty('--pseudo-border-color', opt.color);
-                        // Apply color to the left border using border-left directly or an inline style override
-                        // For the option-btn::before, we'll need to set the background color via a CSS variable
-                        btn.style.borderLeftColor = opt.color;
+                    if (opt.color) {
                         btn.style.boxShadow = `inset 6px 0 0 ${opt.color}, 0 1px 2px rgba(0,0,0,0.04)`;
                     }
                     btn.innerText = opt.text;
-                    btn.onclick = () => submitAnswer(opt.id, btn);
+                    // No onclick — observer mode, answers are disabled
                     container.appendChild(btn);
                 });
                 switchState('state-question');
@@ -379,60 +364,27 @@
                 switchState('state-waiting');
                 document.querySelector('#state-waiting .centered-title').innerText = 'Paused';
                 document.querySelector('#state-waiting .centered-sub').innerText = 'Eyes to the front!';
-            } else if (msg.type === 'SHOW_LOBBY') {
-                switchState('state-waiting');
-                document.querySelector('#state-waiting .centered-title').innerText = 'Welcome in';
-                document.querySelector('#state-waiting .centered-sub').innerText = 'Look at the big screen.<br>Waiting for the host to start...';
-            } else if (msg.type === 'EVENT_FINISHED') {
-                switchState('state-finished');
 
-            } else if (msg.type === 'REVEAL_ANSWER') {
-                if (window.lastAnswerCorrect !== undefined) {
-                    const isCorrect = window.lastAnswerCorrect;
-                    document.getElementById('feedbackIcon').innerText = isCorrect ? '✅' : '❌';
-                    document.getElementById('feedbackText').innerText = isCorrect ? 'Correct!' : 'Not quite.';
-                    if (isCorrect) {
-                        const el = document.getElementById('correctCount');
-                        el.innerText = parseInt(el.innerText) + 1;
-                    }
-                    window.lastAnswerCorrect = undefined;
-                }
             } else if (msg.type === 'EVENT_FINISHED') {
                 const currentRank = document.getElementById('rankNumber').innerText;
                 document.getElementById('finalRankNumber').innerText = currentRank;
                 switchState('state-finished');
+
+            } else if (msg.type === 'REVEAL_ANSWER') {
+                // Preview shows the generic "answer revealed" state without personal result
+                document.getElementById('feedbackIcon').innerText = '🔍';
+                document.getElementById('feedbackText').innerText = 'Answer revealed!';
+                switchState('state-feedback');
             }
         }
-        
+
         function handleGuestMessage(msg) {
             if (msg.type === 'RANK_UPDATE') {
                 document.getElementById('rankNumber').innerText = msg.rank;
                 document.getElementById('correctCount').innerText = msg.correctCount || msg.score || 0;
-            } else if (msg.type === 'KICKED') {
-                switchState('state-finished');
-                document.querySelector('#state-finished .centered-title').innerText = 'Removed';
-                document.querySelector('#state-finished .centered-sub').innerText = 'You have been removed from this event.';
             }
         }
-        
-        function submitAnswer(optionId, btnElement) {
-            document.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('locked'));
-            
-            switchState('state-feedback');
-            document.getElementById('feedbackIcon').innerText = '⏳';
-            document.getElementById('feedbackText').innerText = 'Waiting for others...';
-            
-            fetch('/api/guest/' + guestId + '/answer', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ optionId: optionId })
-            }).then(res => res.json())
-              .then(data => {
-                  window.lastAnswerCorrect = data.correct;
-              })
-              .catch(err => console.error(err));
-        }
-        
+
         connect();
     </script>
 </body>

@@ -426,8 +426,13 @@ async function launchProjectorView(url, projectorScreen = null) {
     // 1. Try to use the provided screen details (from the modern API)
     if (projectorScreen) {
         try {
-            const features = `left=${projectorScreen.availLeft},top=${projectorScreen.availTop},width=${projectorScreen.availWidth},height=${projectorScreen.availHeight},fullscreen=yes`;
-            console.log("Opening on requested screen:", projectorScreen.label);
+            const w = Math.round(projectorScreen.availWidth * 0.6);
+            const h = Math.round(projectorScreen.availHeight * 0.6);
+            const l = Math.round(projectorScreen.availLeft + (projectorScreen.availWidth - w) / 2);
+            const t = Math.round(projectorScreen.availTop + (projectorScreen.availHeight - h) / 2);
+
+            const features = `left=${l},top=${t},width=${w},height=${h}`;
+            console.log("Opening on requested screen at 60% size:", projectorScreen.label);
             audienceWindow = window.open(url, 'AudienceView', features);
         } catch (err) {
             console.warn("Failed to open on specific screen, falling back.", err);
@@ -436,7 +441,8 @@ async function launchProjectorView(url, projectorScreen = null) {
     
     // 2. Fallback: Standard popup if no screen info or previous attempt failed
     if (!audienceWindow) {
-        audienceWindow = window.open(url, 'AudienceView', 'width=1280,height=720,fullscreen=yes');
+        // Original was 1280x720, 60% is 768x432
+        audienceWindow = window.open(url, 'AudienceView', 'width=768,height=432');
     }
 
     // 3. FINAL CHECK: Popup Blocker

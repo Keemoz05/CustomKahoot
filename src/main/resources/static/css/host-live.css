@@ -346,6 +346,17 @@
   letter-spacing: 0.04em;
 }
 
+.live-badge {
+  display: none;
+  background: var(--color-deep-teal);
+  color: white;
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 /* Strictly left-aligned heading */
 .question-preview {
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -379,24 +390,119 @@
   text-align: left;
 }
 
-/* Push-live alert */
+/* Push-live alert — Redesigned for "Quiet Elegance" */
 .btn-push-live {
   display: none;
   width: 100%;
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-rosewood);
+  padding: 14px var(--space-4);
+  background: var(--color-deep-teal);
   color: white;
   border: none;
-  border-radius: var(--radius-md);
-  font-weight: 700;
-  font-size: var(--text-sm);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   margin-top: var(--space-5);
-  letter-spacing: 0.04em;
-  transition: background 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
-.btn-push-live:hover { background: #991B1B; }
+.btn-push-live:hover {
+  background: var(--color-teal-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.35);
+}
+
+.btn-push-live:active {
+  transform: translateY(0);
+}
+
+.btn-push-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  text-align: left;
+}
+
+.btn-push-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.15);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-push-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-push-main {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.btn-push-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.02em;
+}
+
+/* ─── Lobby Preview Card ────────────────────────────────────── */
+.lobby-preview-card {
+  background: var(--color-warm-white);
+  border: 1px solid var(--color-pebble);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  animation: fadeIn 0.3s ease;
+}
+
+.lobby-preview-title {
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  color: var(--color-charcoal);
+  margin: 0;
+}
+
+.lobby-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.lobby-preview-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-stone);
+}
+
+.lobby-preview-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--color-deep-teal);
+  letter-spacing: 4px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* ─── Controls Zone ───────────────────────────────────────────
    RESTRAINED PALETTE:

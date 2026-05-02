@@ -63,4 +63,19 @@ public class DisplayController {
         model.addAttribute("event", event);
         return "display/audience-preview";
     }
+
+    /**
+     * GET /display/{joinCode}/preview-play
+     *
+     * Silently creates a flagged "preview" guest (isPreview=true) and renders
+     * the full guest play UI as an observer.  No event-code input required.
+     * The preview guest is excluded from the real audience roster and leaderboard.
+     */
+    @GetMapping("/display/{joinCode}/preview-play")
+    public String showPreviewPlay(@PathVariable String joinCode, Model model) {
+        com.syed.QuizYa.model.EventGuest previewGuest = guestService.joinEventAsPreview(joinCode);
+        model.addAttribute("guest", previewGuest);
+        model.addAttribute("isPreview", true);
+        return "guest/play-preview";
+    }
 }

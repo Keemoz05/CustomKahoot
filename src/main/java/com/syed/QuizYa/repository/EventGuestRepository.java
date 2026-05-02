@@ -8,5 +8,7 @@ import java.util.Optional;
 public interface EventGuestRepository extends JpaRepository<EventGuest, Long> {
     Optional<EventGuest> findBySessionToken(String sessionToken);
     List<EventGuest> findByEventId(Long eventId);
+    List<EventGuest> findByEventIdAndIsPreviewFalse(Long eventId);
     List<EventGuest> findByEventIdOrderByCorrectCountDesc(Long eventId);
+    List<EventGuest> findByEventIdAndIsPreviewFalseOrderByCorrectCountDesc(Long eventId);
 }

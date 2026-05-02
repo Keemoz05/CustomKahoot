@@ -399,16 +399,25 @@ public class HostApiController {
      */
     @PostMapping("/next-to")
     public ResponseEntity<?> jumpToQuestion(@PathVariable Long eventId, @RequestBody Map<String, Integer> body) {
-        int targetIndex = body.getOrDefault("questionIndex", 1);
+        int targetIndex = body.getOrDefault("questionIndex", 0); // Default to 0 (Lobby)
         com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
         
         event.setCurrentQuestionIndex(targetIndex);
+        
+        if (targetIndex == 0) {
+            // Show Lobby
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "SHOW_LOBBY");
+            eventService.broadcastToGuests(eventId, payload);
+            eventService.broadcastToDisplay(eventId, payload);
+            return ResponseEntity.ok(Map.of("success", true, "state", "LOBBY"));
+        }
         
         List<QuestionBank> banks = questionService.getEventBanks(eventId);
         QuestionBank defaultBank = banks.get(0);
         List<Question> questions = questionService.getQuestionsForBank(defaultBank.getId());
         
-        if (targetIndex > questions.size() || targetIndex <= 0) {
+        if (targetIndex > questions.size() || targetIndex < 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid question index"));
         }
         

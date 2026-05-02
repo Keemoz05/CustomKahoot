@@ -28,6 +28,9 @@ public class EventGuest {
     @Column(name = "is_connected", nullable = false)
     private Boolean isConnected = true;
 
+    @Column(name = "is_preview", nullable = false)
+    private Boolean isPreview = false;
+
     @Column(name = "joined_at", nullable = false, updatable = false)
     private OffsetDateTime joinedAt;
 
@@ -49,6 +52,8 @@ public class EventGuest {
     public void setCorrectCount(Integer correctCount) { this.correctCount = correctCount; }
     public Boolean getConnected() { return isConnected; }
     public void setConnected(Boolean connected) { isConnected = connected; }
+    public Boolean getIsPreview() { return isPreview; }
+    public void setIsPreview(Boolean isPreview) { this.isPreview = isPreview; }
     public OffsetDateTime getJoinedAt() { return joinedAt; }
     public void setJoinedAt(OffsetDateTime joinedAt) { this.joinedAt = joinedAt; }
 }

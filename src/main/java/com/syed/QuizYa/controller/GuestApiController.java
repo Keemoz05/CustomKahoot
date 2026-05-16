@@ -21,15 +21,18 @@ public class GuestApiController {
     private final com.syed.QuizYa.service.EventService eventService;
     private final com.syed.QuizYa.repository.EventGuestRepository eventGuestRepository;
     private final com.syed.QuizYa.service.QuestionService questionService;
+    private final com.syed.QuizYa.repository.GuestAnswerRepository guestAnswerRepository;
 
     public GuestApiController(GuestService guestService, 
                               com.syed.QuizYa.service.EventService eventService,
                               com.syed.QuizYa.repository.EventGuestRepository eventGuestRepository,
-                              com.syed.QuizYa.service.QuestionService questionService) {
+                              com.syed.QuizYa.service.QuestionService questionService,
+                              com.syed.QuizYa.repository.GuestAnswerRepository guestAnswerRepository) {
         this.guestService = guestService;
         this.eventService = eventService;
         this.eventGuestRepository = eventGuestRepository;
         this.questionService = questionService;
+        this.guestAnswerRepository = guestAnswerRepository;
     }
 
     @PostMapping("/{guestId}/answer")
@@ -60,5 +63,57 @@ public class GuestApiController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/{guestId}/state")
+    public ResponseEntity<?> getGuestState(@PathVariable Long guestId) {
+        com.syed.QuizYa.model.EventGuest guest = eventGuestRepository.findById(guestId).orElse(null);
+        if (guest == null) return ResponseEntity.notFound().build();
+        
+        com.syed.QuizYa.model.Event event = guest.getEvent();
+        if (event == null) return ResponseEntity.notFound().build();
+
+        int currentIndex = event.getCurrentQuestionIndex();
+        
+        // Find current question ID
+        Long currentQuestionId = null;
+        if (currentIndex > 0) {
+            java.util.List<com.syed.QuizYa.model.QuestionBank> banks = questionService.getEventBanks(event.getId());
+            if (!banks.isEmpty()) {
+                java.util.List<com.syed.QuizYa.model.Question> questions = questionService.getQuestionsForBank(banks.get(0).getId());
+                if (currentIndex <= questions.size()) {
+                    currentQuestionId = questions.get(currentIndex - 1).getId();
+                }
+            }
+        }
+
+        Long selectedOptionId = null;
+        Boolean isCorrect = null;
+        java.util.List<Long> correctOptionIds = new java.util.ArrayList<>();
+        if (currentQuestionId != null) {
+            com.syed.QuizYa.model.GuestAnswer answer = guestAnswerRepository.findByGuestIdAndQuestionId(guestId, currentQuestionId);
+            if (answer != null) {
+                selectedOptionId = answer.getSelectedOption().getId();
+                isCorrect = answer.getCorrect();
+            }
+            
+            if (Boolean.TRUE.equals(event.getAnswersRevealed())) {
+                java.util.List<com.syed.QuizYa.model.QuestionOption> options = questionService.getOptionsForQuestion(currentQuestionId);
+                for (com.syed.QuizYa.model.QuestionOption opt : options) {
+                    if (Boolean.TRUE.equals(opt.getCorrect())) {
+                        correctOptionIds.add(opt.getId());
+                    }
+                }
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "status", event.getStatus(),
+            "answersRevealed", event.getAnswersRevealed(),
+            "selectedOptionId", selectedOptionId != null ? selectedOptionId : -1,
+            "isCorrect", isCorrect != null ? isCorrect : false,
+            "correctOptionIds", correctOptionIds
+        ));
     }
 }

@@ -101,12 +101,7 @@
 			<artifactId>spring-boot-starter-websocket-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<!-- java dependency tools -->
-	<dependency>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-devtools</artifactId>
-		<optional>true</optional>
-	</dependency>
+
 		<!-- Cloudinary SDK for media uploads -->
 		<dependency>
 			<groupId>com.cloudinary</groupId>

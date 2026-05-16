@@ -224,6 +224,14 @@
             background-color: var(--color-pebble);
         }
 
+        .option-btn.correct {
+            background-color: var(--color-seafoam);
+            border-color: var(--color-forest);
+            color: var(--color-forest);
+            font-weight: 700;
+            opacity: 1;
+        }
+
         .rank-number {
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 64px;
@@ -347,6 +355,7 @@
 
                 msg.options.forEach(opt => {
                     const btn = document.createElement('button');
+                    btn.id = 'opt-' + opt.id;
                     btn.className = 'option-btn';
                     if (opt.color) {
                         btn.style.boxShadow = `inset 6px 0 0 ${opt.color}, 0 1px 2px rgba(0,0,0,0.04)`;
@@ -371,6 +380,14 @@
                 switchState('state-finished');
 
             } else if (msg.type === 'REVEAL_ANSWER') {
+                const correctOptionIds = msg.correctOptionIds || [];
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    const optId = parseInt(btn.id.replace('opt-', ''));
+                    if (correctOptionIds.includes(optId)) {
+                        btn.classList.add('correct');
+                    }
+                });
+
                 // Preview shows the generic "answer revealed" state without personal result
                 document.getElementById('feedbackIcon').innerText = '🔍';
                 document.getElementById('feedbackText').innerText = 'Answer revealed!';

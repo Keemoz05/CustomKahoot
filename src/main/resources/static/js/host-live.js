@@ -28,13 +28,13 @@ window.fetch = async function (...args) {
 // ─── DOM References ───────────────────────────────────────────────────────────
 const btnNext        = document.getElementById('btnNext');
 const btnPrev        = document.getElementById('btnPrev');
-const btnLock        = document.getElementById('btnLock');
+const btnLeaderboard = document.getElementById('btnLeaderboard');
 const btnFeedback    = document.getElementById('btnFeedback');
 const btnReveal      = document.getElementById('btnReveal');
+const btnReopenPresenter = document.getElementById('btnReopenPresenter');
 const btnEndEvent    = document.getElementById('btnEndEvent');   // sidebar only
 const btnToggleSidebar = document.getElementById('btnToggleSidebar');
 const toggleSidebarText = document.getElementById('toggleSidebarText');
-const togglePause    = document.getElementById('togglePause');
 
 const statusBadge    = document.getElementById('statusBadge');
 const questionPreview = document.getElementById('questionPreview');
@@ -61,7 +61,10 @@ const guestCountBadge = document.getElementById('guestCountBadge');
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let stompClient     = null;
-let isPaused        = false;
+let answersRevealed = false;
+let skipRevealConfirm = false;
+let showLeaderboard = false;
+let showFeedback    = false;
 let allQuestions    = [];
 let allGuests       = [];
 let selectedIndex   = window.INITIAL_INDEX || 0;  // Slide the host is PREVIEWING
@@ -70,6 +73,22 @@ let liveIndex       = window.INITIAL_INDEX || 0;  // Slide currently LIVE on scr
 // ─── Startup ──────────────────────────────────────────────────────────────────
 async function init() {
     connectWebSocket();
+    try {
+        const stateRes = await fetch(`${API_BASE}/state`);
+        if (stateRes.ok) {
+            const stateData = await stateRes.json();
+            if (stateData.currentQuestionIndex !== undefined) {
+                liveIndex = stateData.currentQuestionIndex;
+                selectedIndex = liveIndex;
+                answersRevealed = stateData.answersRevealed || false;
+                showLeaderboard = stateData.showLeaderboard || false;
+                showFeedback = stateData.showFeedback || false;
+                updateButtonStates();
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load event state:', e);
+    }
     await Promise.all([loadQuestions(), loadGuests()]);
     updateUI();
 }
@@ -264,12 +283,20 @@ function connectWebSocket() {
     stompClient.debug = null;
 
     stompClient.connect({}, () => {
+        if (statusBadge && statusBadge.innerText === 'Reconnecting...') {
+            statusBadge.innerText = 'Connected';
+            setTimeout(() => { statusBadge.innerText = 'LIVE'; }, 2000);
+        }
         // Subscribe to the shared lobby topic — receives GUEST_JOINED,
         // ANSWER_SUBMITTED, VOTE_DISTRIBUTION and all game-state events.
         stompClient.subscribe(`/topic/event/${window.EVENT_ID}/lobby`, msg => {
             const payload = JSON.parse(msg.body);
             handleLobbyMessage(payload);
         });
+    }, (error) => {
+        console.error('WebSocket error:', error);
+        if (statusBadge) statusBadge.innerText = 'Reconnecting...';
+        setTimeout(connectWebSocket, 2000);
     });
 }
 
@@ -336,15 +363,66 @@ async function postAction(action, body = null) {
 
 // ─── Control Button Bindings ──────────────────────────────────────────────────
 
+function updateButtonStates() {
+    if (btnReveal) {
+        btnReveal.disabled = answersRevealed;
+        btnReveal.style.opacity = answersRevealed ? '0.5' : '1';
+        btnReveal.style.cursor = answersRevealed ? 'not-allowed' : 'pointer';
+        
+        // Remove glow effect if answers are revealed
+        if (answersRevealed) {
+            btnReveal.style.boxShadow = 'none';
+        }
+    }
+    
+    if (btnLeaderboard) {
+        btnLeaderboard.classList.toggle('active', showLeaderboard);
+        btnLeaderboard.style.background = showLeaderboard ? 'var(--color-primary-light)' : '';
+    }
+    
+    if (btnFeedback) {
+        btnFeedback.classList.toggle('active', showFeedback);
+        btnFeedback.style.background = showFeedback ? 'var(--color-primary-light)' : '';
+    }
+}
+
 // ── Next Slide ── uses /next-to for explicit index control
 if (btnNext) {
     btnNext.addEventListener('click', async () => {
+        // Soft Warning Logic
+        if (liveIndex > 0 && !answersRevealed && !skipRevealConfirm) {
+            skipRevealConfirm = true;
+            btnNext.innerHTML = 'Skip Reveal & Next?';
+            btnNext.style.background = 'var(--color-warning)';
+            
+            if (btnReveal) {
+                btnReveal.style.boxShadow = '0 0 12px var(--color-warning)';
+            }
+            return;
+        }
+
         // Prevent going past the last question
         if (liveIndex < allQuestions.length) {
             const data = await postAction('next-to', { questionIndex: liveIndex + 1 });
             if (data?.success) {
                 liveIndex++;
                 selectedIndex = liveIndex;
+                answersRevealed = false;
+                skipRevealConfirm = false;
+                showLeaderboard = false;
+                showFeedback = false;
+                
+                // Reset Next button visual
+                btnNext.innerHTML = `
+                    <div class="btn-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                        </svg>
+                    </div>
+                    Next Slide`;
+                btnNext.style.background = '';
+                
+                updateButtonStates();
                 updateUI();
                 if (answerCount) answerCount.innerText = '0';
             }
@@ -362,44 +440,75 @@ if (btnPrev) {
             if (data?.success) {
                 liveIndex--;
                 selectedIndex = liveIndex;
+                answersRevealed = false;
+                skipRevealConfirm = false;
+                showLeaderboard = false;
+                showFeedback = false;
+                
+                if (btnNext) {
+                    btnNext.innerHTML = `
+                        <div class="btn-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                            </svg>
+                        </div>
+                        Next Slide`;
+                    btnNext.style.background = '';
+                }
+
+                updateButtonStates();
                 updateUI();
             }
         }
     });
 }
 
-// ── Lock Answers ──
-if (btnLock) {
-    btnLock.addEventListener('click', () => postAction('lock'));
+// ── Show Leaderboard ──
+if (btnLeaderboard) {
+    btnLeaderboard.addEventListener('click', async () => {
+        const data = await postAction('toggle-leaderboard');
+        if (data && data.showLeaderboard !== undefined) {
+            showLeaderboard = data.showLeaderboard;
+            updateButtonStates();
+        }
+    });
 }
 
 // ── Reveal Answer ──
 if (btnReveal) {
-    btnReveal.addEventListener('click', () => postAction('reveal'));
+    btnReveal.addEventListener('click', async () => {
+        if (answersRevealed) return;
+        const data = await postAction('reveal');
+        if (data?.success) {
+            answersRevealed = true;
+            skipRevealConfirm = false;
+            
+            if (btnNext) {
+                btnNext.innerHTML = `
+                    <div class="btn-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                        </svg>
+                    </div>
+                    Next Slide`;
+                btnNext.style.background = '';
+            }
+
+            updateButtonStates();
+        }
+    });
 }
 
 // ── Show/Hide Feedback Chart ──
-// We toggle a local flag so we don't destructively overwrite the icon HTML.
-let feedbackVisible = false;
 if (btnFeedback) {
-    btnFeedback.addEventListener('click', () => {
-        feedbackVisible = !feedbackVisible;
-        if (feedbackChart) {
-            feedbackChart.style.display = feedbackVisible ? 'block' : 'none';
-        }
-        // Update only the text node — preserve the SVG icon inside .btn-icon
-        const label = btnFeedback.lastChild;
-        if (label && label.nodeType === Node.TEXT_NODE) {
-            label.textContent = feedbackVisible ? 'Hide Chart' : 'Feedback';
-        } else {
-            // Fallback: append/update a text span
-            let textEl = btnFeedback.querySelector('.btn-label');
-            if (!textEl) {
-                textEl = document.createElement('span');
-                textEl.className = 'btn-label';
-                btnFeedback.appendChild(textEl);
+    btnFeedback.addEventListener('click', async () => {
+        const data = await postAction('toggle-feedback');
+        if (data && data.showFeedback !== undefined) {
+            showFeedback = data.showFeedback;
+            updateButtonStates();
+            if (feedbackChart) {
+                feedbackChart.style.display = showFeedback ? 'block' : 'none';
             }
-            textEl.innerText = feedbackVisible ? 'Hide Chart' : 'Feedback';
         }
     });
 }
@@ -410,27 +519,42 @@ if (btnPushLive) {
         const data = await postAction('next-to', { questionIndex: selectedIndex });
         if (data?.success) {
             liveIndex = selectedIndex;
+            answersRevealed = false;
+            skipRevealConfirm = false;
+            showLeaderboard = false;
+            showFeedback = false;
+            
+            if (btnNext) {
+                btnNext.innerHTML = `
+                    <div class="btn-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                        </svg>
+                    </div>
+                    Next Slide`;
+                btnNext.style.background = '';
+            }
+            
+            updateButtonStates();
             updateUI();
         }
     });
 }
 
-// ── Storyteller Pause ──
-if (togglePause) {
-    togglePause.addEventListener('click', () => {
-        isPaused = !isPaused;
-        togglePause.classList.toggle('active', isPaused);
-        postAction('pause', { paused: isPaused });
+// ── Reopen Presenter Window ──
+let presenterWindow = null;
+if (btnReopenPresenter) {
+    btnReopenPresenter.addEventListener('click', () => {
+        if (!presenterWindow || presenterWindow.closed) {
+            presenterWindow = window.open(`/display/${window.JOIN_CODE}`, 'quizya-presenter', 'width=1280,height=720');
+        } else {
+            presenterWindow.focus();
+        }
     });
 }
 
 // ── End Event (single button, lives in sidebar) ──
 async function handleEndEvent() {
-    const confirmed = confirm(
-        'End this event?\n\nAll guest progress will be cleared and the event will return to DRAFT.'
-    );
-    if (!confirmed) return;
-
     const data = await postAction('finish');
     if (data?.success) {
         window.location.href = '/host/dashboard';
@@ -633,3 +757,12 @@ function renderFeedbackChart(data) {
 
 // ─── Kick off ─────────────────────────────────────────────────────────────────
 init();
+
+window.addEventListener('beforeunload', () => {
+    // Fire and forget, use sendBeacon or fetch keepalive to ensure it goes through
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon(`${API_BASE}/cleanup-previews`);
+    } else {
+        fetch(`${API_BASE}/cleanup-previews`, { method: 'POST', keepalive: true }).catch(() => {});
+    }
+});

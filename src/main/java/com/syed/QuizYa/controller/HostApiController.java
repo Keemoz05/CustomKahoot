@@ -182,6 +182,20 @@ public class HostApiController {
 
     // ─── Event Settings ──────────────────────────────────────────────────────
 
+    @GetMapping("/state")
+    public ResponseEntity<?> getEventState(@PathVariable Long eventId) {
+        return eventService.getEventById(eventId)
+                .map(event -> ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "currentQuestionIndex", event.getCurrentQuestionIndex(),
+                        "status", event.getStatus(),
+                        "showLeaderboard", event.getShowLeaderboard(),
+                        "showFeedback", event.getShowFeedback(),
+                        "answersRevealed", event.getAnswersRevealed()
+                )))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PutMapping("")
     public ResponseEntity<?> renameEvent(@PathVariable Long eventId, @RequestBody Map<String, String> payload) {
         String newTitle = payload.get("title");
@@ -229,6 +243,12 @@ public class HostApiController {
         displayPayload.put("guestId", guestId);
         eventService.broadcastToDisplay(eventId, displayPayload);
         
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PostMapping("/cleanup-previews")
+    public ResponseEntity<?> cleanupPreviews(@PathVariable Long eventId) {
+        guestService.cleanupPreviewGuests(eventId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
@@ -294,10 +314,16 @@ public class HostApiController {
 
     // ─── Lobby Launch (Week 3) ───────────────────────────────────────────────
 
+    @GetMapping("/test-ngrok")
+    public ResponseEntity<?> testNgrok(HttpServletRequest request) {
+        String url = urlDiscoveryService.getBaseUrl(request.getServerPort());
+        return ResponseEntity.ok(Map.of("url", url));
+    }
+
     /**
      * POST /go-live
      *
-     * Transitions the event from DRAFT → LOBBY, generates a QR code, and returns
+     * Transitions the event from DRAFT -> LOBBY, generates a QR code, and returns
      * the data needed to show the host the join info overlay.
      *
      * Uses HttpServletRequest to derive the base URL dynamically (works on any port/host).
@@ -323,7 +349,29 @@ public class HostApiController {
             return ResponseEntity.ok(response);
 
         } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            // Event is already live (LOBBY or LIVE)
+            // It's possible the host started Ngrok AFTER the event went live.
+            // Let's dynamically fetch the baseUrl and update the QR code so it always reflects the current network state.
+            String baseUrl = urlDiscoveryService.getBaseUrl(request.getServerPort());
+            com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
+            
+            try {
+                String joinUrl = baseUrl + "/join?pin=" + event.getJoinCode();
+                String newQrDataUri = com.syed.QuizYa.service.QrCodeGenerator.generateDataUri(joinUrl);
+                event.setQrCodeUrl(newQrDataUri);
+                // Also update the database so the presenter view gets the updated QR
+                eventService.saveEvent(event); 
+            } catch (Exception ex) {
+                System.err.println("QR code regeneration failed: " + ex.getMessage());
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("joinCode", event.getJoinCode());
+            response.put("qrCodeUrl", event.getQrCodeUrl());
+            response.put("displayUrl", "/display/" + event.getJoinCode());
+            response.put("hostLiveUrl", "/host/events/" + eventId + "/live");
+            return ResponseEntity.ok(response);
         }
     }
 
@@ -333,7 +381,12 @@ public class HostApiController {
 
         // Increment the 1-based question pointer stored on the Event entity.
         // currentQuestionIndex starts at 0 (no question shown yet).
-        event.setCurrentQuestionIndex(event.getCurrentQuestionIndex() + 1);
+        int newIndex = event.getCurrentQuestionIndex() + 1;
+        event.setCurrentQuestionIndex(newIndex);
+        event.setAnswersRevealed(false);
+        event.setShowLeaderboard(false);
+        event.setShowFeedback(false);
+        eventService.saveEvent(event);
 
         // Grab the first (default) bank for this event — every event always
         // has exactly one bank created in EventService.createEvent().
@@ -350,11 +403,6 @@ public class HostApiController {
         // Index is 1-based on the event but 0-based in the list, hence the -1.
         Question currentQuestion = questions.get(event.getCurrentQuestionIndex() - 1);
         List<QuestionOption> options = questionService.getOptionsForQuestion(currentQuestion.getId());
-
-        // TODO: persist the updated currentQuestionIndex properly.
-        // Currently calling goLive() is a hack that only works once because
-        // goLive() checks for DRAFT status.  A dedicated saveEvent() method
-        // should be added to EventService in a future pass.
 
         // Build the WebSocket payload.  Using HashMap instead of Map.of()
         // because Map.of() produces an immutable map with strict generic
@@ -403,6 +451,10 @@ public class HostApiController {
         com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
         
         event.setCurrentQuestionIndex(targetIndex);
+        event.setAnswersRevealed(false);
+        event.setShowLeaderboard(false);
+        event.setShowFeedback(false);
+        eventService.saveEvent(event);
         
         if (targetIndex == 0) {
             // Show Lobby
@@ -441,101 +493,102 @@ public class HostApiController {
         return ResponseEntity.ok(Map.of("success", true, "state", "QUESTION"));
     }
 
-    /**
-     * POST /lock
-     *
-     * Prevents guests from submitting any more answers for the current question.
-     * The guest's play.html listens for LOCK_ANSWERS but doesn't currently
-     * have explicit lock handling — in practice guests are already in the
-     * "waiting" feedback state after submitting.  The venue display updates
-     * its prompt text to "Answers Locked!".
-     */
-    @PostMapping("/lock")
-    public ResponseEntity<?> lockAnswers(@PathVariable Long eventId) {
+    @PostMapping("/toggle-leaderboard")
+    public ResponseEntity<?> toggleLeaderboard(@PathVariable Long eventId) {
+        com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
+        boolean newState = !event.getShowLeaderboard();
+        event.setShowLeaderboard(newState);
+        eventService.saveEvent(event);
+
         Map<String, Object> payload = new HashMap<>();
-        payload.put("type", "LOCK_ANSWERS");
+        payload.put("type", newState ? "SHOW_LEADERBOARD" : "HIDE_LEADERBOARD");
+
+        if (newState) {
+            // Fetch the top 5 guests
+            List<com.syed.QuizYa.model.EventGuest> topGuests = guestService.getTopGuests(eventId, 5);
+            List<Map<String, Object>> topList = topGuests.stream().map(g -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("name", g.getDisplayName());
+                map.put("score", g.getCorrectCount());
+                return map;
+            }).collect(Collectors.toList());
+
+            payload.put("topGuests", topList);
+
+            // Send private RANK_UPDATE
+            List<com.syed.QuizYa.model.EventGuest> guests = guestService.getGuestsForEvent(eventId);
+            for (com.syed.QuizYa.model.EventGuest guest : guests) {
+                int rank = guestService.calculateRank(eventId, guest.getId());
+                Map<String, Object> rankPayload = new HashMap<>();
+                rankPayload.put("type", "RANK_UPDATE");
+                rankPayload.put("rank", rank);
+                rankPayload.put("correctCount", guest.getCorrectCount());
+                eventService.broadcastToGuest(guest.getId(), rankPayload);
+            }
+        }
+
         eventService.broadcastToGuests(eventId, payload);
         eventService.broadcastToDisplay(eventId, payload);
-        return ResponseEntity.ok(Map.of("success", true, "state", "LOCKED"));
+
+        return ResponseEntity.ok(Map.of("success", true, "showLeaderboard", newState));
     }
 
-    /**
-     * POST /reveal
-     *
-     * Tells all clients that the correct answer can now be shown.
-     *
-     * On the guest side (play.html), the REVEAL_ANSWER event triggers the
-     * deferred feedback display: when the guest submitted their answer, the
-     * API response included { correct: true/false } which was stashed in
-     * window.lastAnswerCorrect.  The reveal event reads that stashed value
-     * and shows ✅ or ❌ accordingly.
-     *
-     * On the venue display, the prompt text changes to "Correct Answer Revealed".
-     */
+    @PostMapping("/toggle-feedback")
+    public ResponseEntity<?> toggleFeedback(@PathVariable Long eventId) {
+        com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
+        boolean newState = !event.getShowFeedback();
+        event.setShowFeedback(newState);
+        eventService.saveEvent(event);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", newState ? "SHOW_FEEDBACK" : "HIDE_FEEDBACK");
+        
+        // Let clients know to display or hide the feedback view. The data itself 
+        // will be pulled or pushed separately, but we could also broadcast it here if needed.
+        eventService.broadcastToGuests(eventId, payload);
+        eventService.broadcastToDisplay(eventId, payload);
+
+        return ResponseEntity.ok(Map.of("success", true, "showFeedback", newState));
+    }
+
     @PostMapping("/reveal")
     public ResponseEntity<?> revealAnswers(@PathVariable Long eventId) {
+        com.syed.QuizYa.model.Event event = eventService.getEventById(eventId).orElseThrow();
+        event.setAnswersRevealed(true);
+        eventService.saveEvent(event);
+
+        // Also lock submissions for the current slide
+        Map<String, Object> lockPayload = new HashMap<>();
+        lockPayload.put("type", "LOCK_ANSWERS");
+        eventService.broadcastToGuests(eventId, lockPayload);
+        eventService.broadcastToDisplay(eventId, lockPayload);
+
+        // Fetch current question to get the correct option(s)
+        List<Long> correctOptionIds = new java.util.ArrayList<>();
+        int currentIndex = event.getCurrentQuestionIndex();
+        if (currentIndex > 0) {
+            List<QuestionBank> banks = questionService.getEventBanks(eventId);
+            if (!banks.isEmpty()) {
+                List<Question> questions = questionService.getQuestionsForBank(banks.get(0).getId());
+                if (currentIndex <= questions.size()) {
+                    Question currentQuestion = questions.get(currentIndex - 1);
+                    List<QuestionOption> options = questionService.getOptionsForQuestion(currentQuestion.getId());
+                    for (QuestionOption opt : options) {
+                        if (Boolean.TRUE.equals(opt.getCorrect())) {
+                            correctOptionIds.add(opt.getId());
+                        }
+                    }
+                }
+            }
+        }
+
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", "REVEAL_ANSWER");
+        payload.put("correctOptionIds", correctOptionIds);
         eventService.broadcastToGuests(eventId, payload);
         eventService.broadcastToDisplay(eventId, payload);
 
         return ResponseEntity.ok(Map.of("success", true, "state", "REVEAL"));
-    }
-
-    /**
-     * POST /leaderboard
-     *
-     * Two things happen here:
-     *
-     * 1. PUBLIC broadcast — the top 5 guests (sorted by correctCount DESC)
-     *    are sent to both WebSocket channels as a SHOW_LEADERBOARD payload.
-     *    The venue display renders them as a numbered list; guests see a
-     *    "Leaderboard" state on their phone.
-     *
-     * 2. PRIVATE per-guest broadcast — for every guest in the event, we
-     *    calculate their personal rank (position in the sorted list) and
-     *    send a RANK_UPDATE message to their private queue at
-     *    /queue/guest/{guestId}.  The guest's play.html picks this up in
-     *    handleGuestMessage() and updates the rank card and correct counter
-     *    on their device.
-     *
-     * Scoring is accuracy-based only — ranking is purely by number of
-     * correct answers (correctCount).  There is NO speed bonus, matching
-     * the design requirement for equal marks regardless of response time.
-     */
-    @PostMapping("/leaderboard")
-    public ResponseEntity<?> showLeaderboard(@PathVariable Long eventId) {
-        // Fetch the top 5 guests sorted by correctCount descending.
-        List<com.syed.QuizYa.model.EventGuest> topGuests = guestService.getTopGuests(eventId, 5);
-        List<Map<String, Object>> topList = topGuests.stream().map(g -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("name", g.getDisplayName());
-            map.put("score", g.getCorrectCount());  // "score" is just the raw correct count
-            return map;
-        }).collect(Collectors.toList());
-
-        // Build and broadcast the public leaderboard payload.
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("type", "SHOW_LEADERBOARD");
-        payload.put("topGuests", topList);
-
-        eventService.broadcastToGuests(eventId, payload);
-        eventService.broadcastToDisplay(eventId, payload);
-
-        // Send a private RANK_UPDATE to each individual guest.
-        // This uses /queue/guest/{guestId} which is a per-user destination,
-        // so each guest only sees their own rank — not anyone else's.
-        List<com.syed.QuizYa.model.EventGuest> guests = guestService.getGuestsForEvent(eventId);
-        for (com.syed.QuizYa.model.EventGuest guest : guests) {
-            int rank = guestService.calculateRank(eventId, guest.getId());
-            Map<String, Object> rankPayload = new HashMap<>();
-            rankPayload.put("type", "RANK_UPDATE");
-            rankPayload.put("rank", rank);
-            rankPayload.put("correctCount", guest.getCorrectCount());
-            eventService.broadcastToGuest(guest.getId(), rankPayload);
-        }
-
-        return ResponseEntity.ok(Map.of("success", true, "state", "LEADERBOARD"));
     }
 
     /**
@@ -561,26 +614,6 @@ public class HostApiController {
 
         return ResponseEntity.ok(Map.of("success", true, "state", "DRAFT"));
     }
-
-    /**
-     * POST /pause
-     *
-     * Implements the "Storyteller Pause / Hold" toggle (Use Case H6).
-     * When activated, the venue display shows a full-screen dark overlay
-     * with "Eyes to the front!" and the guest's phone switches to a
-     * calming "Paused" waiting state.  This freezes the visual game state
-     * so the host can address the audience without distraction.
-     *
-     * The toggle is stateless on the server — the frontend tracks
-     * isPaused and sends { paused: true/false } with each click.
-     */
-    @PostMapping("/pause")
-    public ResponseEntity<?> togglePause(@PathVariable Long eventId, @RequestBody Map<String, Boolean> body) {
-        Boolean paused = body.getOrDefault("paused", true);
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("type", paused ? "PAUSE" : "RESUME");
-        eventService.broadcastToGuests(eventId, payload);
-        // Removed broadcastToDisplay so it only affects the audience view
-        return ResponseEntity.ok(Map.of("success", true, "paused", paused));
-    }
 }
+
+

@@ -185,5 +185,16 @@ public class GuestService {
         java.util.List<EventGuest> guests = eventGuestRepository.findByEventIdAndIsPreviewFalseOrderByCorrectCountDesc(eventId);
         return guests.stream().limit(limit).collect(java.util.stream.Collectors.toList());
     }
+
+    @Transactional
+    public void cleanupPreviewGuests(Long eventId) {
+        java.util.List<EventGuest> guests = eventGuestRepository.findByEventId(eventId);
+        for (EventGuest guest : guests) {
+            if (Boolean.TRUE.equals(guest.getIsPreview())) {
+                guestAnswerRepository.deleteAll(guestAnswerRepository.findByGuestId(guest.getId()));
+                eventGuestRepository.delete(guest);
+            }
+        }
+    }
 }
 

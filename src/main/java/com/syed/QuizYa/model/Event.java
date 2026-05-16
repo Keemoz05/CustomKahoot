@@ -34,6 +34,15 @@ public class Event {
     @Column(name = "max_guests", nullable = false)
     private Integer maxGuests = 200;
 
+    @Column(name = "show_leaderboard")
+    private Boolean showLeaderboard = false;
+
+    @Column(name = "show_feedback")
+    private Boolean showFeedback = false;
+
+    @Column(name = "answers_revealed")
+    private Boolean answersRevealed = false;
+
     @Column(name = "started_at")
     private OffsetDateTime startedAt;
 
@@ -82,4 +91,10 @@ public class Event {
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Boolean getShowLeaderboard() { return showLeaderboard; }
+    public void setShowLeaderboard(Boolean showLeaderboard) { this.showLeaderboard = showLeaderboard; }
+    public Boolean getShowFeedback() { return showFeedback; }
+    public void setShowFeedback(Boolean showFeedback) { this.showFeedback = showFeedback; }
+    public Boolean getAnswersRevealed() { return answersRevealed; }
+    public void setAnswersRevealed(Boolean answersRevealed) { this.answersRevealed = answersRevealed; }
 }

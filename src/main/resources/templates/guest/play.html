@@ -230,6 +230,27 @@
             box-shadow: none;
         }
 
+        .option-btn.selected {
+            border: 2px solid var(--color-charcoal);
+            font-weight: 700;
+            opacity: 1;
+        }
+
+        .option-btn.correct {
+            background-color: var(--color-seafoam);
+            border-color: var(--color-forest);
+            color: var(--color-forest);
+            font-weight: 700;
+            opacity: 1;
+        }
+
+        .option-btn.incorrect {
+            background-color: var(--color-blush);
+            border-color: var(--color-rosewood);
+            color: var(--color-rosewood);
+            opacity: 0.8;
+        }
+
         .rank-number {
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 64px;
@@ -321,10 +342,25 @@
         /*<![CDATA[*/
         const eventId = /*[[${guest.event.id}]]*/ null;
         const guestId = /*[[${guest.id}]]*/ null;
+        const joinCode = /*[[${guest.event.joinCode}]]*/ null;
         /*]]>*/
+        
+        const currentToken = new URLSearchParams(window.location.search).get('token');
+        if (currentToken) {
+            sessionStorage.setItem('quizya_session_token', currentToken);
+        }
         
         let stompClient = null;
         
+        function showReconnectingBanner() {
+            if (document.querySelector('.reconnect-banner')) return;
+            const banner = document.createElement('div');
+            banner.className = 'reconnect-banner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:var(--color-amber);color:white;text-align:center;padding:8px;font-size:14px;z-index:9999;font-weight:500;';
+            banner.innerText = 'Connection Lost — Reconnecting...';
+            document.body.appendChild(banner);
+        }
+
         function connect() {
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
@@ -332,6 +368,7 @@
             
             stompClient.connect({}, function (frame) {
                 console.log('Connected to WebSocket');
+                document.querySelectorAll('.reconnect-banner').forEach(b => b.remove());
                 
                 stompClient.subscribe('/topic/event/' + eventId + '/guest', function (message) {
                     handleEventMessage(JSON.parse(message.body));
@@ -340,12 +377,55 @@
                 stompClient.subscribe('/queue/guest/' + guestId, function (message) {
                     handleGuestMessage(JSON.parse(message.body));
                 });
+            }, function(error) {
+                console.log('WebSocket Error:', error);
+                showReconnectingBanner();
+                setTimeout(connect, 2000);
             });
         }
         
         function switchState(stateId) {
             document.querySelectorAll('.view-state').forEach(el => el.classList.remove('active'));
             document.getElementById(stateId).classList.add('active');
+        }
+
+        function loadGuestState() {
+            fetch('/api/guest/' + guestId + '/state')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.guestState = data;
+                        applyGuestState();
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        function applyGuestState() {
+            if (!window.guestState) return;
+            const state = window.guestState;
+
+            // Highlight selected option
+            if (state.selectedOptionId && state.selectedOptionId !== -1) {
+                const btn = document.getElementById('opt-' + state.selectedOptionId);
+                if (btn) {
+                    btn.classList.add('selected');
+                    // Lock others
+                    document.querySelectorAll('.option-btn').forEach(b => b.classList.add('locked'));
+                    
+                    // If not revealed, switch to feedback state
+                    if (!state.answersRevealed) {
+                        switchState('state-feedback');
+                        document.getElementById('feedbackIcon').innerText = '⏳';
+                        document.getElementById('feedbackText').innerText = 'Waiting for others...';
+                    }
+                }
+            }
+
+            // Highlight correct/incorrect if revealed
+            if (state.answersRevealed) {
+                handleReveal(state.correctOptionIds || [], state.isCorrect);
+            }
         }
         
         function handleEventMessage(msg) {
@@ -356,13 +436,10 @@
                 
                 msg.options.forEach(opt => {
                     const btn = document.createElement('button');
+                    btn.id = 'opt-' + opt.id;
                     btn.className = 'option-btn';
-                    // Optional: keep backend colors but as left border to mimic slido?
-                    // Let's use it as a left border indicator
                     if(opt.color) {
                         btn.style.setProperty('--pseudo-border-color', opt.color);
-                        // Apply color to the left border using border-left directly or an inline style override
-                        // For the option-btn::before, we'll need to set the background color via a CSS variable
                         btn.style.borderLeftColor = opt.color;
                         btn.style.boxShadow = `inset 6px 0 0 ${opt.color}, 0 1px 2px rgba(0,0,0,0.04)`;
                     }
@@ -371,6 +448,8 @@
                     container.appendChild(btn);
                 });
                 switchState('state-question');
+                window.lastAnswerCorrect = undefined;
+                loadGuestState();
 
             } else if (msg.type === 'SHOW_LEADERBOARD') {
                 switchState('state-rank');
@@ -384,23 +463,55 @@
                 document.querySelector('#state-waiting .centered-title').innerText = 'Welcome in';
                 document.querySelector('#state-waiting .centered-sub').innerText = 'Look at the big screen.<br>Waiting for the host to start...';
             } else if (msg.type === 'EVENT_FINISHED') {
-                switchState('state-finished');
-
-            } else if (msg.type === 'REVEAL_ANSWER') {
-                if (window.lastAnswerCorrect !== undefined) {
-                    const isCorrect = window.lastAnswerCorrect;
-                    document.getElementById('feedbackIcon').innerText = isCorrect ? '✅' : '❌';
-                    document.getElementById('feedbackText').innerText = isCorrect ? 'Correct!' : 'Not quite.';
-                    if (isCorrect) {
-                        const el = document.getElementById('correctCount');
-                        el.innerText = parseInt(el.innerText) + 1;
-                    }
-                    window.lastAnswerCorrect = undefined;
-                }
-            } else if (msg.type === 'EVENT_FINISHED') {
                 const currentRank = document.getElementById('rankNumber').innerText;
                 document.getElementById('finalRankNumber').innerText = currentRank;
                 switchState('state-finished');
+
+            } else if (msg.type === 'REVEAL_ANSWER') {
+                handleReveal(msg.correctOptionIds || []);
+            }
+        }
+
+        function handleReveal(correctOptionIds, isCorrectFallback = null) {
+            let userSelectedAny = false;
+            let userCorrect = false;
+
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                const optId = parseInt(btn.id.replace('opt-', ''));
+                if (correctOptionIds.includes(optId)) {
+                    btn.classList.add('correct');
+                } else if (btn.classList.contains('selected')) {
+                    btn.classList.add('incorrect');
+                }
+
+                if (btn.classList.contains('selected')) {
+                    userSelectedAny = true;
+                    if (correctOptionIds.includes(optId)) {
+                        userCorrect = true;
+                    }
+                }
+            });
+
+            // If we are applying from state, we might use isCorrectFallback
+            if (!userSelectedAny && window.guestState && window.guestState.selectedOptionId !== -1) {
+                userSelectedAny = true;
+                userCorrect = isCorrectFallback !== null ? isCorrectFallback : window.lastAnswerCorrect;
+            }
+
+            switchState('state-feedback');
+            
+            if (!userSelectedAny) {
+                document.getElementById('feedbackIcon').innerText = '👀';
+                document.getElementById('feedbackText').innerText = 'You did not answer this question.';
+            } else {
+                const isCorrect = userCorrect;
+                document.getElementById('feedbackIcon').innerText = isCorrect ? '✅' : '❌';
+                document.getElementById('feedbackText').innerText = isCorrect ? 'Correct!' : 'Not quite.';
+                if (isCorrect && window.lastAnswerCorrect === undefined) {
+                    const el = document.getElementById('correctCount');
+                    el.innerText = parseInt(el.innerText) + 1;
+                    window.lastAnswerCorrect = true; // prevent double counting
+                }
             }
         }
         
@@ -412,11 +523,21 @@
                 switchState('state-finished');
                 document.querySelector('#state-finished .centered-title').innerText = 'Removed';
                 document.querySelector('#state-finished .centered-sub').innerText = 'You have been removed from this event.';
+                
+                if (!document.getElementById('btnRejoin')) {
+                    const btn = document.createElement('a');
+                    btn.id = 'btnRejoin';
+                    btn.href = '/join?pin=' + joinCode;
+                    btn.style.cssText = 'display:inline-block; margin-top:24px; text-decoration:none; padding:12px 24px; background:var(--color-deep-teal); color:white; border-radius:var(--radius-md); font-weight:600; font-family:"Inter",sans-serif;';
+                    btn.innerText = 'Return to Join Page';
+                    document.querySelector('#state-finished .card').appendChild(btn);
+                }
             }
         }
         
         function submitAnswer(optionId, btnElement) {
             document.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('locked'));
+            btnElement.classList.add('selected');
             
             switchState('state-feedback');
             document.getElementById('feedbackIcon').innerText = '⏳';
@@ -429,11 +550,15 @@
             }).then(res => res.json())
               .then(data => {
                   window.lastAnswerCorrect = data.correct;
+                  if (!window.guestState) window.guestState = {};
+                  window.guestState.selectedOptionId = optionId;
+                  window.guestState.isCorrect = data.correct;
               })
               .catch(err => console.error(err));
         }
         
         connect();
+        loadGuestState();
     </script>
 </body>
 </html>

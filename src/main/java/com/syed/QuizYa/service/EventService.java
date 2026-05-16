@@ -197,4 +197,16 @@ public class EventService {
         event.setCurrentQuestionIndex(0);
         eventRepository.save(event);
     }
+
+    @Transactional
+    public void updateCurrentQuestionIndex(Long eventId, int index) {
+        Event event = eventRepository.findById(eventId).orElseThrow();
+        event.setCurrentQuestionIndex(index);
+        eventRepository.save(event);
+    }
+
+    @Transactional
+    public Event saveEvent(Event event) {
+        return eventRepository.save(event);
+    }
 }

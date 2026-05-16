@@ -232,7 +232,18 @@
                 document.getElementById('livePrompt').innerText = "Answers Locked! Waiting for reveal...";
             } else if (msg.type === 'REVEAL_ANSWER') {
                 document.getElementById('livePrompt').innerText = "Correct Answer Revealed";
-                // If we had correct flag we could highlight it, but for now just show text
+                const correctOptionIds = msg.correctOptionIds || [];
+                document.querySelectorAll('#liveOptions > div').forEach(div => {
+                    const optId = parseInt(div.id.replace('opt-', ''));
+                    if (correctOptionIds.includes(optId)) {
+                        div.style.backgroundColor = '#d1fae5'; // seafoam green
+                        div.style.borderColor = '#059669';     // forest green
+                        div.style.borderLeftColor = '#059669';
+                        div.style.color = '#064e3b';
+                    } else {
+                        div.style.opacity = '0.5';
+                    }
+                });
             } else if (msg.type === 'SHOW_LEADERBOARD') {
                 lobbyScreen.style.display = 'none';
                 liveScreen.style.display = 'flex';

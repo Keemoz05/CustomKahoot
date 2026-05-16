@@ -36,7 +36,10 @@ public class GuestController {
     }
 
     @GetMapping("/play")
-    public String showPlayPage(@RequestParam String token, Model model) {
+    public String showPlayPage(@RequestParam(required = false) String token, Model model) {
+        if (token == null || token.isEmpty()) {
+            return "guest/play-recover";
+        }
         EventGuest guest = guestService.getGuestByToken(token);
         model.addAttribute("guest", guest);
         return "guest/play";

@@ -280,6 +280,18 @@
                     </div>
                 </div>
                 <div id="optionsContainer" class="options-grid"></div>
+                
+                <!-- Inline Feedback / Selection Result -->
+                <div id="inlineFeedback" style="display:none; margin-top:24px; padding:16px; border-radius:12px; background:var(--color-warm-white); text-align:center; border:1px solid var(--color-pebble);">
+                    <div id="feedbackIconInline" style="font-size:32px; margin-bottom:8px;">⏳</div>
+                    <div id="feedbackTextInline" style="font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; font-weight:600; color:var(--color-charcoal);">Waiting for others...</div>
+                </div>
+
+                <!-- Inline Leaderboard -->
+                <div id="inlineLeaderboard" style="display:none; margin-top:24px; padding-top:24px; border-top:1px solid var(--color-pebble);">
+                    <h3 style="font-family:'Plus Jakarta Sans',sans-serif; font-size:16px; color:var(--color-slate); margin:0 0 12px 0;">Top 5 Leaderboard</h3>
+                    <ul id="inlineLeaderboardList" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
+                </div>
             </div>
         </div>
 
@@ -365,10 +377,29 @@
                     container.appendChild(btn);
                 });
                 switchState('state-question');
+                document.getElementById('inlineFeedback').style.display = 'none';
+                document.getElementById('inlineLeaderboard').style.display = 'none';
 
             } else if (msg.type === 'SHOW_LEADERBOARD') {
-                switchState('state-rank');
-
+                const lb = document.getElementById('inlineLeaderboard');
+                lb.style.display = 'block';
+                const list = document.getElementById('inlineLeaderboardList');
+                list.innerHTML = '';
+                if (msg.topGuests) {
+                    msg.topGuests.forEach((g, i) => {
+                        const li = document.createElement('li');
+                        li.style.display = 'flex';
+                        li.style.justifyContent = 'space-between';
+                        li.style.padding = '10px 14px';
+                        li.style.background = 'white';
+                        li.style.borderRadius = 'var(--radius-sm)';
+                        li.style.border = '1px solid var(--color-pebble)';
+                        li.innerHTML = `<span><strong>${i+1}.</strong> ${g.name}</span><span style="font-weight:600;">${g.score} pts</span>`;
+                        list.appendChild(li);
+                    });
+                }
+            } else if (msg.type === 'HIDE_LEADERBOARD') {
+                document.getElementById('inlineLeaderboard').style.display = 'none';
             } else if (msg.type === 'PAUSE') {
                 switchState('state-waiting');
                 document.querySelector('#state-waiting .centered-title').innerText = 'Paused';
@@ -389,9 +420,9 @@
                 });
 
                 // Preview shows the generic "answer revealed" state without personal result
-                document.getElementById('feedbackIcon').innerText = '🔍';
-                document.getElementById('feedbackText').innerText = 'Answer revealed!';
-                switchState('state-feedback');
+                document.getElementById('inlineFeedback').style.display = 'block';
+                document.getElementById('feedbackIconInline').innerText = '🔍';
+                document.getElementById('feedbackTextInline').innerText = 'Answer revealed!';
             }
         }
 

@@ -530,7 +530,14 @@ public class HostApiController {
         eventService.broadcastToGuests(eventId, payload);
         eventService.broadcastToDisplay(eventId, payload);
 
-        return ResponseEntity.ok(Map.of("success", true, "showLeaderboard", newState));
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("success", true);
+        responseBody.put("showLeaderboard", newState);
+        if (newState && payload.containsKey("topGuests")) {
+            responseBody.put("topGuests", payload.get("topGuests"));
+        }
+
+        return ResponseEntity.ok(responseBody);
     }
 
     @PostMapping("/toggle-feedback")

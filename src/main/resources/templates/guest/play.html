@@ -298,7 +298,21 @@
                     </div>
                 </div>
                 
+                </div>
+                
                 <div id="optionsContainer" class="options-grid"></div>
+
+                <!-- Inline Feedback / Selection Result -->
+                <div id="inlineFeedback" style="display:none; margin-top:24px; padding:16px; border-radius:12px; background:var(--color-warm-white); text-align:center; border:1px solid var(--color-pebble);">
+                    <div id="feedbackIconInline" style="font-size:32px; margin-bottom:8px;">⏳</div>
+                    <div id="feedbackTextInline" style="font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; font-weight:600; color:var(--color-charcoal);">Waiting for others...</div>
+                </div>
+
+                <!-- Inline Leaderboard -->
+                <div id="inlineLeaderboard" style="display:none; margin-top:24px; padding-top:24px; border-top:1px solid var(--color-pebble);">
+                    <h3 style="font-family:'Plus Jakarta Sans',sans-serif; font-size:16px; color:var(--color-slate); margin:0 0 12px 0;">Top 5 Leaderboard</h3>
+                    <ul id="inlineLeaderboardList" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
+                </div>
             </div>
         </div>
         
@@ -413,11 +427,11 @@
                     // Lock others
                     document.querySelectorAll('.option-btn').forEach(b => b.classList.add('locked'));
                     
-                    // If not revealed, switch to feedback state
+                    // If not revealed, show inline feedback
                     if (!state.answersRevealed) {
-                        switchState('state-feedback');
-                        document.getElementById('feedbackIcon').innerText = '⏳';
-                        document.getElementById('feedbackText').innerText = 'Waiting for others...';
+                        document.getElementById('inlineFeedback').style.display = 'block';
+                        document.getElementById('feedbackIconInline').innerText = '⏳';
+                        document.getElementById('feedbackTextInline').innerText = 'Waiting for others...';
                     }
                 }
             }
@@ -448,12 +462,31 @@
                     container.appendChild(btn);
                 });
                 switchState('state-question');
+                document.getElementById('inlineFeedback').style.display = 'none';
+                document.getElementById('inlineLeaderboard').style.display = 'none';
                 window.lastAnswerCorrect = undefined;
                 loadGuestState();
 
             } else if (msg.type === 'SHOW_LEADERBOARD') {
-                switchState('state-rank');
-
+                const lb = document.getElementById('inlineLeaderboard');
+                lb.style.display = 'block';
+                const list = document.getElementById('inlineLeaderboardList');
+                list.innerHTML = '';
+                if (msg.topGuests) {
+                    msg.topGuests.forEach((g, i) => {
+                        const li = document.createElement('li');
+                        li.style.display = 'flex';
+                        li.style.justifyContent = 'space-between';
+                        li.style.padding = '10px 14px';
+                        li.style.background = 'white';
+                        li.style.borderRadius = 'var(--radius-sm)';
+                        li.style.border = '1px solid var(--color-pebble)';
+                        li.innerHTML = `<span><strong>${i+1}.</strong> ${g.name}</span><span style="font-weight:600;">${g.score} pts</span>`;
+                        list.appendChild(li);
+                    });
+                }
+            } else if (msg.type === 'HIDE_LEADERBOARD') {
+                document.getElementById('inlineLeaderboard').style.display = 'none';
             } else if (msg.type === 'PAUSE') {
                 switchState('state-waiting');
                 document.querySelector('#state-waiting .centered-title').innerText = 'Paused';
@@ -493,20 +526,20 @@
             });
 
             // If we are applying from state, we might use isCorrectFallback
-            if (!userSelectedAny && window.guestState && window.guestState.selectedOptionId !== -1) {
+            if (!userSelectedAny && window.guestState && window.guestState.selectedOptionId && window.guestState.selectedOptionId !== -1) {
                 userSelectedAny = true;
                 userCorrect = isCorrectFallback !== null ? isCorrectFallback : window.lastAnswerCorrect;
             }
 
-            switchState('state-feedback');
+            document.getElementById('inlineFeedback').style.display = 'block';
             
             if (!userSelectedAny) {
-                document.getElementById('feedbackIcon').innerText = '👀';
-                document.getElementById('feedbackText').innerText = 'You did not answer this question.';
+                document.getElementById('feedbackIconInline').innerText = '👀';
+                document.getElementById('feedbackTextInline').innerText = 'You did not answer this question.';
             } else {
                 const isCorrect = userCorrect;
-                document.getElementById('feedbackIcon').innerText = isCorrect ? '✅' : '❌';
-                document.getElementById('feedbackText').innerText = isCorrect ? 'Correct!' : 'Not quite.';
+                document.getElementById('feedbackIconInline').innerText = isCorrect ? '✅' : '❌';
+                document.getElementById('feedbackTextInline').innerText = isCorrect ? 'Correct!' : 'Not quite.';
                 if (isCorrect && window.lastAnswerCorrect === undefined) {
                     const el = document.getElementById('correctCount');
                     el.innerText = parseInt(el.innerText) + 1;
@@ -539,9 +572,9 @@
             document.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('locked'));
             btnElement.classList.add('selected');
             
-            switchState('state-feedback');
-            document.getElementById('feedbackIcon').innerText = '⏳';
-            document.getElementById('feedbackText').innerText = 'Waiting for others...';
+            document.getElementById('inlineFeedback').style.display = 'block';
+            document.getElementById('feedbackIconInline').innerText = '⏳';
+            document.getElementById('feedbackTextInline').innerText = 'Waiting for others...';
             
             fetch('/api/guest/' + guestId + '/answer', {
                 method: 'POST',

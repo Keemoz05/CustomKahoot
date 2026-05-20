@@ -1,0 +1,40 @@
+# Implementation Plan: Live Panel Refinements & Concurrent UI
+
+## 1. Problem Statement
+The current implementation of the host live controls requires several refinements:
+* Slide transitions do not fully reset the new toggle states (Leaderboard/Feedback).
+* The "Skip Reveal" warning button has poor color contrast, making the text unreadable.
+* Toggle logic for the Leaderboard and Feedback buttons is buggy or out of sync.
+* The Display/Guest views currently use a destructive replacement model (showing Leaderboard *hides* the question/options).
+* There is no support for showing both Feedback and Leaderboard data simultaneously on the screens without cluttering or replacing the main UI.
+
+## 2. Objectives & Fixes
+
+### Issue 1: Slide Navigation State Resets (Backend)
+* **Target**: `HostApiController.java` (`/next-to` endpoint)
+* **Plan**: Explicitly set `showLeaderboard = false` and `showFeedback = false` alongside `answersRevealed` when moving to a new slide. This ensures the server state is sanitized.
+
+### Issue 2: "Skip Reveal" Text Visibility (Frontend Host)
+* **Target**: `host-live.js`
+* **Plan**: When applying the `var(--color-warning)` background to the Next button, explicitly set `btnNext.style.color = 'var(--color-charcoal)'` to ensure readability. Reset to default when the warning clears.
+
+### Issue 3: Toggle Logic & Active States (Frontend Host)
+* **Target**: `host-live.js` & `live.html`
+* **Plan**: 
+  * Fix the toggle endpoints to ensure they accurately flip the boolean state and return the updated state.
+  * Update the UI update loop to visually distinguish the 'ON' and 'OFF' states for both buttons using the `active` CSS class and background styling.
+
+### Issue 4: Non-Destructive, Concurrent UI Layout (All Screens)
+* **Target**: `live.html` (Host), `play.html` / `play-preview.html` (Guest), `lobby.html` (Projector)
+* **Plan**: Stop hiding the `questionPreview` or `liveOptions` elements when toggles are activated.
+  * **Layout Strategy**:
+    * **Projector (`lobby.html`)**: Since it's a large screen, when active, slide the question options to the left (taking up ~60% width) and use the right side (40% width) as a dynamic panel. If Leaderboard is ON, stack it there. If Feedback is ON, stack it there. If both are ON, stack them vertically in that right-hand panel.
+    * **Host Panel (`live.html`)**: Inject a side-by-side or stacked UI *below* or *beside* the options inside the `questionPreview` area.
+    * **Guest View (`play.html`)**: Because mobile screens are narrow, append the Leaderboard list and Feedback visualization *below* the answer options in expandable cards or distinct sections, allowing the user to scroll to see them while keeping their selected answer in view.
+  * **Dismissal**: When toggled OFF, these appended elements will cleanly fade/slide out, returning the view to the standard centered layout.
+
+### Issue 5: Synchronized WebSocket Updates (Backend & Frontend)
+* **Target**: `HostApiController.java`, `lobby.html`, `play.html`
+* **Plan**: 
+  * Update the `/toggle-leaderboard` and `/toggle-feedback` endpoints to broadcast non-destructive events (e.g., `UPDATE_LEADERBOARD_VISIBILITY`, `UPDATE_FEEDBACK_VISIBILITY`).
+  * Ensure the WebSocket listeners on the frontend dynamically append/remove the relevant DOM elements based on these specific events, rather than relying on a monolithic `switchState` function that hides everything else.

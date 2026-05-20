@@ -108,18 +108,25 @@
         </div>
 
         <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; overflow-y: auto;">
-            <div style="background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 40px 50px; width: 100%; max-width: 1000px;">
-                <h1 id="livePrompt" style="font-size: 2.5rem; margin-top: 0; margin-bottom: 2.5rem; color: #1f2937; font-weight: 600;">Question</h1>
+            <div style="display:flex; gap: 24px; width: 100%; max-width: 1400px; align-items:flex-start;">
                 
-                <div id="liveOptions" style="display: grid; grid-template-columns: 1fr; gap: 1.25rem;">
-                    <!-- Options will go here -->
+                <!-- Main Question Column -->
+                <div style="flex: 1; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 40px 50px;">
+                    <h1 id="livePrompt" style="font-size: 2.5rem; margin-top: 0; margin-bottom: 2.5rem; color: #1f2937; font-weight: 600;">Question</h1>
+                    <div id="liveOptions" style="display: grid; grid-template-columns: 1fr; gap: 1.25rem;">
+                        <!-- Options will go here -->
+                    </div>
                 </div>
                 
-                <div id="liveLeaderboard" style="display: none; width: 100%;">
-                    <h2 style="font-size: 2rem; margin-top: 0; margin-bottom: 2rem; color: #4b5563;">Top Players</h2>
-                    <ul id="leaderboardList" style="list-style: none; padding: 0; margin: 0; font-size: 1.5rem; text-align: left; color: #374151;">
-                    </ul>
+                <!-- Right Sidebar Column (Leaderboard / Feedback) -->
+                <div id="rightSidebar" style="display:none; flex-basis: 400px; flex-shrink: 0; flex-direction:column; gap:24px;">
+                    <div id="liveLeaderboard" style="display: none; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 30px; width: 100%;">
+                        <h2 style="font-size: 1.5rem; margin-top: 0; margin-bottom: 1.5rem; color: #4b5563;">Top Players</h2>
+                        <ul id="leaderboardList" style="list-style: none; padding: 0; margin: 0; font-size: 1.25rem; text-align: left; color: #374151;">
+                        </ul>
+                    </div>
                 </div>
+
             </div>
         </div>
 
@@ -204,8 +211,9 @@
             if (msg.type === 'SHOW_QUESTION') {
                 lobbyScreen.style.display = 'none';
                 liveScreen.style.display = 'flex';
+                document.getElementById('rightSidebar').style.display = 'none';
                 document.getElementById('liveLeaderboard').style.display = 'none';
-                document.getElementById('liveOptions').style.display = 'flex';
+                document.getElementById('liveOptions').style.display = 'grid';
                 
                 document.getElementById('livePrompt').innerText = msg.prompt || 'Question...';
                 const optsContainer = document.getElementById('liveOptions');
@@ -247,9 +255,8 @@
             } else if (msg.type === 'SHOW_LEADERBOARD') {
                 lobbyScreen.style.display = 'none';
                 liveScreen.style.display = 'flex';
-                document.getElementById('liveOptions').style.display = 'none';
+                document.getElementById('rightSidebar').style.display = 'flex';
                 document.getElementById('liveLeaderboard').style.display = 'block';
-                document.getElementById('livePrompt').innerText = "Leaderboard";
                 
                 const list = document.getElementById('leaderboardList');
                 list.innerHTML = '';
@@ -274,6 +281,11 @@
                     });
                 } else {
                     list.innerHTML = '<li>Fetching scores...</li>';
+                }
+            } else if (msg.type === 'HIDE_LEADERBOARD') {
+                document.getElementById('liveLeaderboard').style.display = 'none';
+                if (document.getElementById('liveLeaderboard').style.display === 'none') {
+                    document.getElementById('rightSidebar').style.display = 'none';
                 }
             } else if (msg.type === 'PAUSE') {
                 document.getElementById('pauseOverlay').style.display = 'flex';

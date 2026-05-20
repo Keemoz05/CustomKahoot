@@ -394,6 +394,7 @@ if (btnNext) {
             skipRevealConfirm = true;
             btnNext.innerHTML = 'Skip Reveal & Next?';
             btnNext.style.background = 'var(--color-warning)';
+            btnNext.style.color = 'var(--color-charcoal)';
             
             if (btnReveal) {
                 btnReveal.style.boxShadow = '0 0 12px var(--color-warning)';
@@ -421,8 +422,10 @@ if (btnNext) {
                     </div>
                     Next Slide`;
                 btnNext.style.background = '';
+                btnNext.style.color = '';
                 
                 updateButtonStates();
+                updateHostPanels();
                 updateUI();
                 if (answerCount) answerCount.innerText = '0';
             }
@@ -454,9 +457,11 @@ if (btnPrev) {
                         </div>
                         Next Slide`;
                     btnNext.style.background = '';
+                    btnNext.style.color = '';
                 }
 
                 updateButtonStates();
+                updateHostPanels();
                 updateUI();
             }
         }
@@ -470,7 +475,47 @@ if (btnLeaderboard) {
         if (data && data.showLeaderboard !== undefined) {
             showLeaderboard = data.showLeaderboard;
             updateButtonStates();
+            updateHostPanels();
+            if (showLeaderboard && data.topGuests) {
+                renderHostLeaderboard(data.topGuests);
+            }
         }
+    });
+}
+
+function updateHostPanels() {
+    const feedbackPanel = document.getElementById('feedbackChart');
+    const leaderboardPanel = document.getElementById('hostLeaderboard');
+    
+    if (feedbackPanel) {
+        feedbackPanel.style.display = showFeedback ? 'block' : 'none';
+    }
+    if (leaderboardPanel) {
+        leaderboardPanel.style.display = showLeaderboard ? 'block' : 'none';
+    }
+}
+
+function renderHostLeaderboard(topGuests) {
+    const list = document.getElementById('hostLeaderboardList');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    if (!topGuests || topGuests.length === 0) {
+        list.innerHTML = '<li style="color:var(--color-stone);">No data available yet</li>';
+        return;
+    }
+    
+    topGuests.forEach((g, i) => {
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        li.style.padding = '8px 12px';
+        li.style.background = 'white';
+        li.style.borderRadius = 'var(--radius-sm)';
+        li.style.border = '1px solid var(--color-pebble)';
+        
+        li.innerHTML = `<span><strong>${i+1}.</strong> ${g.name}</span><span style="font-weight:600;">${g.score}</span>`;
+        list.appendChild(li);
     });
 }
 
@@ -492,6 +537,7 @@ if (btnReveal) {
                     </div>
                     Next Slide`;
                 btnNext.style.background = '';
+                btnNext.style.color = '';
             }
 
             updateButtonStates();
@@ -506,9 +552,7 @@ if (btnFeedback) {
         if (data && data.showFeedback !== undefined) {
             showFeedback = data.showFeedback;
             updateButtonStates();
-            if (feedbackChart) {
-                feedbackChart.style.display = showFeedback ? 'block' : 'none';
-            }
+            updateHostPanels();
         }
     });
 }
@@ -533,9 +577,11 @@ if (btnPushLive) {
                     </div>
                     Next Slide`;
                 btnNext.style.background = '';
+                btnNext.style.color = '';
             }
             
             updateButtonStates();
+            updateHostPanels();
             updateUI();
         }
     });
